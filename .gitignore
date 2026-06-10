@@ -1,0 +1,83 @@
+# ===========================
+# NODE - todas las carpetas
+# ===========================
+**/node_modules/
+**/.pnp
+**/.pnp.js
+
+# ===========================
+# BUILDS
+# ===========================
+**/dist/
+**/build/
+**/.next/
+**/out/
+**/web-build/
+
+# ===========================
+# VARIABLES DE ENTORNO
+# ===========================
+**/.env
+**/.env.local
+**/.env.development.local
+**/.env.test.local
+**/.env.production.local
+
+# ===========================
+# LOGS
+# ===========================
+**/*.log
+**/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===========================
+# EXPO / REACT NATIVE
+# ===========================
+**/.expo/
+**/.metro-health-check*
+**/expo-env.d.ts
+**/*.orig.*
+**/*.jks
+**/*.p8
+**/*.p12
+**/*.key
+**/*.mobileprovision
+**/.kotlin/
+**/ios/
+**/android/
+
+# ===========================
+# OS
+# ===========================
+.DS_Store
+Thumbs.db
+*.pem
+
+# ===========================
+# IDEs
+# ===========================
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.sublime-workspace
+
+# ===========================
+# TESTS / COVERAGE
+# ===========================
+**/coverage/
+**/.nyc_output/
+
+# ===========================
+# MISC
+# ===========================
+**/.temp/
+**/.tmp/
+**/.cache/
+**/*.tsbuildinfo
+**/report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json

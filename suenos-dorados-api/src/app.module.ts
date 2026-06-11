@@ -18,6 +18,9 @@ import { AuthModule } from './auth/auth.module';
 import { PedidosModule } from './pedidos/pedidos.module';
 import { DireccionesModule } from './direcciones/direcciones.module';
 
+// Módulo admin (dashboard + gestión desde escritorio)
+import { AdminModule } from './admin/admin.module';
+
 @Module({
   imports: [
     // Configuración global de variables de entorno
@@ -52,6 +55,7 @@ import { DireccionesModule } from './direcciones/direcciones.module';
     AuthModule,
     PedidosModule,
     DireccionesModule,
+    AdminModule,
   ],
 })
 export class AppModule {}

@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.vscode/
+facturas/
+reportes/
+imagenes_app/
+*.pdf
+*.xlsx

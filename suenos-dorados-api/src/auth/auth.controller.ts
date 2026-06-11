@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Patch, Body, UseGuards, Request, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Patch, Body, UseGuards, Request, HttpCode, HttpStatus, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegistroDto } from './dto/registro.dto';
@@ -33,5 +33,15 @@ export class AuthController {
     @Body() body: { nombreUsuario?: string; apellidoUsuario?: string; telefono?: string },
   ) {
     return this.authService.actualizarPerfil(req.user.idUsuario, body);
+  }
+
+  // Solo para inicializar el admin — protegido con clave de entorno
+  @Post('init-admin')
+  initAdmin(@Body() body: { setupKey: string }) {
+    const validKey = process.env.SETUP_KEY;
+    if (!validKey || body.setupKey !== validKey) {
+      throw new UnauthorizedException('Clave de configuración inválida');
+    }
+    return this.authService.initAdmin();
   }
 }

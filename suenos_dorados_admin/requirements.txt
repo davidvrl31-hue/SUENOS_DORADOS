@@ -1,0 +1,11 @@
+﻿flet[all]
+SQLAlchemy>=2.0
+psycopg2-binary
+bcrypt
+reportlab
+openpyxl
+requests
+python-dotenv
+
+# Para instalar todo:
+# pip install "flet[all]" "SQLAlchemy>=2.0" psycopg2-binary bcrypt reportlab openpyxl requests python-dotenv

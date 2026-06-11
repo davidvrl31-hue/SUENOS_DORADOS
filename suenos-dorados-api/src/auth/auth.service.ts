@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Usuario } from '../usuarios/entities/usuario.entity';
 import { LoginDto } from './dto/login.dto';
@@ -19,6 +19,7 @@ export class AuthService {
     @InjectRepository(Usuario)
     private readonly usuariosRepo: Repository<Usuario>,
     private readonly jwtService: JwtService,
+    private readonly dataSource: DataSource,
   ) {}
 
   async login(dto: LoginDto) {
@@ -107,5 +108,38 @@ export class AuthService {
   ) {
     await this.usuariosRepo.update(idUsuario, datos);
     return this.perfil(idUsuario);
+  }
+
+  async initAdmin() {
+    // Asegura que exista el rol Administrador con id 1
+    await this.dataSource.query(`
+      INSERT INTO roles (id_rol, descripcion_rol)
+      VALUES (1, 'Administrador')
+      ON CONFLICT (id_rol) DO NOTHING
+    `);
+    await this.dataSource.query(`
+      INSERT INTO roles (id_rol, descripcion_rol)
+      VALUES (2, 'Cliente')
+      ON CONFLICT (id_rol) DO NOTHING
+    `);
+
+    const existe = await this.usuariosRepo.findOne({
+      where: { correoElectronico: 'admin@gmail.com' },
+    });
+    if (existe) {
+      return { mensaje: 'El admin ya existe', correo: 'admin@gmail.com' };
+    }
+
+    const hash = await bcrypt.hash('admin1234', 10);
+    const admin = this.usuariosRepo.create({
+      idRol: 1,
+      nombreUsuario: 'Admin',
+      apellidoUsuario: 'Maestro',
+      correoElectronico: 'admin@gmail.com',
+      contrasenaHash: hash,
+      estado: true,
+    });
+    await this.usuariosRepo.save(admin);
+    return { mensaje: 'Admin creado correctamente', correo: 'admin@gmail.com', contrasena: 'admin1234' };
   }
 }

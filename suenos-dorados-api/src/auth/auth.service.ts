@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Usuario } from '../usuarios/entities/usuario.entity';
+import { Direccion } from '../direcciones/entities/direccion.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegistroDto } from './dto/registro.dto';
 import { JwtPayload } from './jwt.strategy';
@@ -18,6 +19,8 @@ export class AuthService {
   constructor(
     @InjectRepository(Usuario)
     private readonly usuariosRepo: Repository<Usuario>,
+    @InjectRepository(Direccion)
+    private readonly direccionesRepo: Repository<Direccion>,
     private readonly jwtService: JwtService,
     private readonly dataSource: DataSource,
   ) {}
@@ -66,6 +69,26 @@ export class AuthService {
     });
 
     const guardado = await this.usuariosRepo.save(nuevoUsuario);
+
+    // Guardar la dirección inicial si fue enviada
+    if (dto.direccion) {
+      const dir = this.direccionesRepo.create({
+        idUsuario: guardado.idUsuario,
+        pais: dto.direccion.pais ?? 'Colombia',
+        descripcionDepartamento: dto.direccion.descripcionDepartamento,
+        descripcionMunicipio: dto.direccion.descripcionMunicipio,
+        descripcionDireccion: dto.direccion.descripcionDireccion,
+        complemento: dto.direccion.complemento ?? null,
+        descripcionBarrio: dto.direccion.descripcionBarrio ?? null,
+        codigoPostal: dto.direccion.codigoPostal ?? null,
+        indicaciones: dto.direccion.indicaciones ?? null,
+        etiqueta: dto.direccion.etiqueta ?? 'Casa',
+        telefonoContacto: dto.direccion.telefonoContacto ?? dto.telefono ?? null,
+        esPrincipal: true, // siempre es principal al ser la primera
+      });
+      await this.direccionesRepo.save(dir);
+    }
+
     return this.generarToken(guardado);
   }
 
@@ -111,7 +134,7 @@ export class AuthService {
   }
 
   async initAdmin() {
-    // Asegura que exista el rol Administrador con id 1
+    // Asegura que existan los roles base
     await this.dataSource.query(`
       INSERT INTO roles (id_rol, descripcion_rol)
       VALUES (1, 'Administrador')

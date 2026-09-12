@@ -9,17 +9,19 @@ export class Producto {
   @Column({ name: 'id_categoria' })
   idCategoria!: number;
 
-  @Column({ name: 'id_coleccion', type: 'int', nullable: true }) // ◄--- Corregido con type: 'int'
+  @Column({ name: 'id_coleccion', type: 'int', nullable: true })
   idColeccion!: number | null;
 
   @Column({ name: 'nombre_producto', length: 150 })
   nombreProducto!: string;
 
-  @Column({ name: 'descripcion_producto', type: 'text', nullable: true }) // ◄--- Corregido con type: 'text'
+  @Column({ name: 'descripcion_producto', type: 'text', nullable: true })
   descripcionProducto!: string | null;
 
   @Column({ length: 180 })
   slug!: string;
+
+  imagenUrl?: string | null;
 
   @Column({ name: 'estado_producto', type: 'boolean' })
   estadoProducto!: boolean;

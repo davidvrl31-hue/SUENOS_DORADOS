@@ -67,12 +67,13 @@ export default function MisPedidosPage() {
 
   return (
     <div className="space-y-6">
+      {/* Encabezado único — flecha solo en escritorio */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/perfil" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+          <Link href="/perfil" className="hidden md:flex p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <ArrowLeft size={20} className="text-gray-600" />
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Mis pedidos</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Mis pedidos</h1>
         </div>
         <button onClick={loadOrders} disabled={isLoadingOrders}
           className="flex items-center gap-2 text-sm text-primary hover:underline disabled:opacity-50">

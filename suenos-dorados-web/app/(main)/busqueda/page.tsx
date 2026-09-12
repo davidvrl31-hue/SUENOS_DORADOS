@@ -8,12 +8,12 @@ import { Product } from "@/app/context/AppContext";
 
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80";
 
-function mapToProduct(p: Producto, nombreCategoria: string): Product {
+function mapToProduct(p: Producto, nombreCategoria: string, price: number): Product {
   return {
     id: p.idProducto,
     name: p.nombreProducto,
-    price: 0,
-    image: PLACEHOLDER_IMAGE,
+    price: price,
+    image: p.imagenUrl || PLACEHOLDER_IMAGE,
     category: nombreCategoria,
     slug: p.slug,
     descripcion: p.descripcionProducto ?? undefined,
@@ -36,16 +36,20 @@ function BusquedaContent() {
     const cargar = async () => {
       setLoading(true);
       try {
-        const [cats, prods] = await Promise.all([
+        const [cats, prods, vars] = await Promise.all([
           SueñosDoradosAPI.getCategorias(),
           SueñosDoradosAPI.getProductos(),
+          SueñosDoradosAPI.getVariantes(),
         ]);
         setCategorias(cats);
         const mapeados = prods
           .filter((p) => p.estadoProducto)
           .map((p) => {
             const cat = cats.find((c) => c.idCategoria === p.idCategoria);
-            return mapToProduct(p, cat?.nombreCategoria ?? "Sin categoría");
+            const varsProd = vars.filter((v) => v.idProducto === p.idProducto && v.estado);
+            const precios = varsProd.map((v) => Number(v.precio));
+            const precioMin = precios.length > 0 ? Math.min(...precios) : 0;
+            return mapToProduct(p, cat?.nombreCategoria ?? "Sin categoría", precioMin);
           });
         setProductos(mapeados);
       } catch {

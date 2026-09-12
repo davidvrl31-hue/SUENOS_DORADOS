@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, ParseIntPipe, UseGuards, Request } from '@nestjs/common';
 import { DireccionesService } from './direcciones.service';
 import { CreateDireccionDto } from './dto/create-direccion.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -19,6 +19,15 @@ export class DireccionesController {
     @Body() dto: CreateDireccionDto,
   ) {
     return this.svc.crear(req.user.idUsuario, dto);
+  }
+
+  @Patch(':id')
+  actualizar(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: { user: { idUsuario: number } },
+    @Body() dto: Partial<CreateDireccionDto>,
+  ) {
+    return this.svc.actualizar(id, req.user.idUsuario, dto);
   }
 
   @Delete(':id')

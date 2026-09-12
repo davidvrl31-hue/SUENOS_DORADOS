@@ -2,6 +2,7 @@
 import { use, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Heart, ShoppingCart, Truck, Shield, RotateCcw, Star, Loader2 } from "lucide-react";
 import { useApp } from "@/app/context/AppContext";
 import { SueñosDoradosAPI, Producto, VarianteProducto, Color, Medida } from "@/src/services/api.service";
@@ -12,10 +13,14 @@ const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1631049307264-da0ec
 
 export default function ProductoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { addToCart, toggleFavorite, favorites } = useApp();
+  const { addToCart, replaceCartItem, toggleFavorite, favorites, cart } = useApp();
+
+  const searchParams = useSearchParams();
+  const queryVarianteId = searchParams.get("variante");
 
   const [producto, setProducto] = useState<Producto | null>(null);
   const [variantes, setVariantes] = useState<VarianteProducto[]>([]);
+  const [allVars, setAllVars] = useState<VarianteProducto[]>([]);
   const [colores, setColores] = useState<Color[]>([]);
   const [medidas, setMedidas] = useState<Medida[]>([]);
   const [relacionados, setRelacionados] = useState<Producto[]>([]);
@@ -27,11 +32,12 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
     const cargarDatos = async () => {
       setLoading(true);
       try {
-        const [prod, vars, cols, meds] = await Promise.all([
+        const [prod, vars, cols, meds, dbAllVars] = await Promise.all([
           SueñosDoradosAPI.getProducto(Number(id)),
           SueñosDoradosAPI.getVariantes(Number(id)),
           SueñosDoradosAPI.getColores(),
           SueñosDoradosAPI.getMedidas(),
+          SueñosDoradosAPI.getVariantes(),
         ]);
 
         if (!prod) { setNotFound(true); return; }
@@ -39,12 +45,19 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
         setProducto(prod);
         const variantesActivas = vars.filter((v) => v.estado);
         setVariantes(variantesActivas);
+        setAllVars(dbAllVars);
         setColores(cols);
         setMedidas(meds);
 
-        // Seleccionar primera variante disponible con stock
-        const conStock = variantesActivas.find((v) => v.stock > 0);
-        if (conStock) setVarianteSeleccionada(conStock);
+        // Seleccionar variante solicitada por query param o la primera con stock
+        let seleccionada = null;
+        if (queryVarianteId) {
+          seleccionada = variantesActivas.find((v) => v.idVariante === Number(queryVarianteId));
+        }
+        if (!seleccionada) {
+          seleccionada = variantesActivas.find((v) => v.stock > 0) || variantesActivas[0] || null;
+        }
+        setVarianteSeleccionada(seleccionada);
 
         // Cargar relacionados de la misma categoría
         const todos = await SueñosDoradosAPI.getProductos(prod.idCategoria);
@@ -56,7 +69,7 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
       }
     };
     cargarDatos();
-  }, [id]);
+  }, [id, queryVarianteId]);
 
   if (loading) {
     return (
@@ -78,16 +91,26 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
   // Construir el objeto Product compatible con el contexto
   const precioActual = varianteSeleccionada ? Number(varianteSeleccionada.precio) : 0;
   const productParaCarrito: Product = {
-    id: producto.idProducto,
-    name: producto.nombreProducto,
-    price: precioActual,
-    image: PLACEHOLDER_IMAGE,
-    category: String(producto.idCategoria),
-    slug: producto.slug,
+    id:          producto.idProducto,
+    name:        producto.nombreProducto,
+    price:       precioActual,
+    image:       producto.imagenUrl || PLACEHOLDER_IMAGE,
+    category:    String(producto.idCategoria),
+    slug:        producto.slug,
     descripcion: producto.descripcionProducto ?? undefined,
   };
 
   const isFav = favorites.some((f) => f.id === producto.idProducto);
+
+  // Variante que ya está en el carrito para este producto (si existe)
+  const itemEnCarrito = cart.find((i) => i.id === producto.idProducto);
+
+  // Stock real de la variante seleccionada
+  const stockActual = varianteSeleccionada?.stock ?? 0;
+  const cantidadEnCarrito = cart.find(
+    (i) => i.idVariante === varianteSeleccionada?.idVariante
+  )?.quantity ?? 0;
+  const puedeAgregar = stockActual > 0 && cantidadEnCarrito < stockActual;
 
   // Agrupar colores únicos disponibles en variantes
   const coloresDisponibles = colores.filter((c) =>
@@ -104,14 +127,17 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
   const getNombreMedida = (idMedida: number) =>
     medidas.find((m) => m.idMedida === idMedida)?.nombreMedida ?? "Medida";
 
-  const relacionadosComoProduct: Product[] = relacionados.map((r) => ({
-    id: r.idProducto,
-    name: r.nombreProducto,
-    price: 0,
-    image: PLACEHOLDER_IMAGE,
-    category: String(r.idCategoria),
-    slug: r.slug,
-  }));
+  const relacionadosComoProduct: Product[] = relacionados.map((r) => {
+    const v = allVars.find((v) => v.idProducto === r.idProducto && v.estado);
+    return {
+      id: r.idProducto,
+      name: r.nombreProducto,
+      price: v ? Number(v.precio) : 0,
+      image: r.imagenUrl || PLACEHOLDER_IMAGE,
+      category: String(r.idCategoria),
+      slug: r.slug,
+    };
+  });
 
   return (
     <div className="space-y-10">
@@ -133,7 +159,7 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
         {/* Imagen */}
         <div className="space-y-3">
           <div className="relative aspect-square rounded-3xl overflow-hidden bg-gray-100">
-            <Image src={PLACEHOLDER_IMAGE} alt={producto.nombreProducto} fill
+            <Image src={producto.imagenUrl || PLACEHOLDER_IMAGE} alt={producto.nombreProducto} fill
               className="object-cover" sizes="(max-width: 768px) 100vw, 50vw" priority />
             <div className="absolute top-4 left-4 flex flex-col gap-2">
               {!producto.estadoProducto && (
@@ -250,12 +276,25 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
           {/* Stock */}
           {varianteSeleccionada && (
             <p className="text-xs text-gray-500">
-              {varianteSeleccionada.stock > 0
-                ? <span className="text-green-600 font-medium">{varianteSeleccionada.stock} en stock</span>
-                : <span className="text-red-500 font-medium">Sin stock</span>
-              }
+              {stockActual > 0 ? (
+                <>
+                  <span className="text-green-600 font-medium">{stockActual} en stock</span>
+                  {cantidadEnCarrito > 0 && (
+                    <span className="text-primary ml-2">· {cantidadEnCarrito} en tu carrito</span>
+                  )}
+                </>
+              ) : (
+                <span className="text-red-500 font-medium">Sin stock</span>
+              )}
               {varianteSeleccionada.sku && ` · SKU: ${varianteSeleccionada.sku}`}
             </p>
+          )}
+
+          {/* Alerta cuando se alcanza el límite de stock */}
+          {varianteSeleccionada && stockActual > 0 && !puedeAgregar && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-700 text-xs px-3 py-2 rounded-lg">
+              Ya tienes el máximo disponible ({stockActual} {stockActual === 1 ? "unidad" : "unidades"}) en tu carrito.
+            </div>
           )}
 
           {/* Beneficios */}
@@ -279,13 +318,19 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
               onClick={() => addToCart(
                 { ...productParaCarrito, price: precioActual },
                 varianteSeleccionada?.idVariante,
-                varianteSeleccionada?.sku
+                varianteSeleccionada?.sku,
               )}
-              disabled={!varianteSeleccionada || varianteSeleccionada.stock === 0}
+              disabled={!varianteSeleccionada || !puedeAgregar}
               className="flex-1 bg-primary hover:bg-primary-dark text-white font-semibold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <ShoppingCart size={18} />
-              {varianteSeleccionada?.stock === 0 ? "Sin stock" : "Agregar al carrito"}
+              {!varianteSeleccionada
+                ? "Selecciona una opción"
+                : stockActual === 0
+                ? "Sin stock"
+                : !puedeAgregar
+                ? "Límite de stock alcanzado"
+                : "Agregar al carrito"}
             </button>
             <button
               onClick={() => toggleFavorite(productParaCarrito)}
@@ -298,31 +343,41 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
             </button>
           </div>
 
+          {/*
+            Botón "Comprar ahora":
+            - Si el producto YA está en carrito con la misma variante → va directo al carrito
+            - Si la variante cambió respecto a la que está en carrito → reemplaza el ítem
+            - Si no está en carrito → agrega y redirige
+          */}
           <button
             onClick={() => {
-              addToCart({ ...productParaCarrito, price: precioActual }, varianteSeleccionada?.idVariante, varianteSeleccionada?.sku);
-              window.location.href = "/carrito";
+              if (!varianteSeleccionada || stockActual === 0) return;
+              const p = { ...productParaCarrito, price: precioActual };
+              if (itemEnCarrito && itemEnCarrito.idVariante === varianteSeleccionada.idVariante) {
+                // Ya está con la misma variante → ir al carrito directo
+                window.location.href = "/carrito";
+              } else if (itemEnCarrito) {
+                // Variante diferente → reemplazar ítem
+                replaceCartItem(
+                  itemEnCarrito.idVariante,
+                  p,
+                  varianteSeleccionada.idVariante,
+                  varianteSeleccionada.sku,
+                );
+              } else {
+                // No existe → agregar y redirigir
+                addToCart(p, varianteSeleccionada.idVariante, varianteSeleccionada.sku, true);
+              }
             }}
-            disabled={!varianteSeleccionada || varianteSeleccionada.stock === 0}
+            disabled={!varianteSeleccionada || stockActual === 0}
             className="w-full border-2 border-primary text-primary font-semibold py-3.5 rounded-xl hover:bg-primary-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Comprar ahora
+            {itemEnCarrito && itemEnCarrito.idVariante === varianteSeleccionada?.idVariante
+              ? "Ir al carrito →"
+              : itemEnCarrito
+              ? "Actualizar y comprar ahora"
+              : "Comprar ahora"}
           </button>
-
-          {/* Variantes disponibles */}
-          {variantes.length > 0 && (
-            <div className="text-xs text-gray-400 space-y-1">
-              <p className="font-medium text-gray-600">Opciones disponibles:</p>
-              {variantes.map((v) => (
-                <div key={v.idVariante} className="flex justify-between">
-                  <span>{getNombreMedida(v.idMedida)} / {getNombreColor(v.idColor)}</span>
-                  <span className={v.stock > 0 ? "text-green-600" : "text-red-400"}>
-                    ${Number(v.precio).toLocaleString("es-CO")} · {v.stock > 0 ? `${v.stock} und` : "Sin stock"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
       </div>
 

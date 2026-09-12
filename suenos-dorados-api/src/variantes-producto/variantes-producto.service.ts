@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { VariantesProducto } from './entities/variantes-producto.entity';
 import { CreateVariantesProductoDto } from './dto/create-variantes-producto.dto';
 import { UpdateVariantesProductoDto } from './dto/update-variantes-producto.dto';
+import { NotFoundException } from '@nestjs/common';
 
 @Injectable()
 export class VariantesProductoService {
@@ -44,7 +45,8 @@ export class VariantesProductoService {
   async ajustarStock(id: number, delta: number): Promise<VariantesProducto> {
     const variante = await this.findOne(id);
     const nuevoStock = variante.stock + delta;
-    if (nuevoStock < 0) throw new Error(`Stock insuficiente. Stock actual: ${variante.stock}`);
+    if (nuevoStock < 0)
+      throw new BadRequestException(`Stock insuficiente. Stock actual: ${variante.stock}`);
     await this.variantesRepository.update(id, { stock: nuevoStock });
     return this.findOne(id);
   }

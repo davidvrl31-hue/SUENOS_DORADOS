@@ -2,6 +2,7 @@ import { Controller, Post, Get, Patch, Body, UseGuards, Request, HttpCode, HttpS
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegistroDto } from './dto/registro.dto';
+import { UpdatePerfilDto } from './dto/update-perfil.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Controller('auth')
@@ -30,7 +31,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   actualizarPerfil(
     @Request() req: { user: { idUsuario: number } },
-    @Body() body: { nombreUsuario?: string; apellidoUsuario?: string; telefono?: string },
+    @Body() body: UpdatePerfilDto,
   ) {
     return this.authService.actualizarPerfil(req.user.idUsuario, body);
   }

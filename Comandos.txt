@@ -1,0 +1,8 @@
+API:
+npm run start:dev
+WEB:
+npm run dev
+ESCRITORIO:
+python main.py
+MOVIL:
+npm start

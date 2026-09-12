@@ -18,6 +18,7 @@ export interface Producto {
   slug: string;
   estadoProducto: boolean;
   fechaCreacion: string;
+  imagenUrl?: string | null;
 }
 
 export interface VarianteProducto {
@@ -51,12 +52,28 @@ export interface LoginPayload {
   contrasena: string;
 }
 
+export interface DireccionRegistroPayload {
+  pais?: string;
+  descripcionDepartamento: string;
+  descripcionMunicipio: string;
+  descripcionDireccion: string;
+  complemento?: string;
+  descripcionBarrio?: string;
+  codigoPostal?: string;
+  indicaciones?: string;
+  etiqueta?: string;
+  telefonoContacto?: string;
+  esPrincipal?: boolean;
+}
+
 export interface RegistroPayload {
   nombreUsuario: string;
   apellidoUsuario: string;
   correoElectronico: string;
   contrasena: string;
   telefono?: string;
+  /** Dirección inicial opcional — se guarda como principal al registrarse */
+  direccion?: DireccionRegistroPayload;
 }
 
 export interface AuthResponse {
@@ -73,20 +90,83 @@ export interface AuthResponse {
 
 export interface DireccionAPI {
   idDireccion: number;
-  idUsuario: number;
-  descripcionDireccion: string;
-  descripcionBarrio: string | null;
-  descripcionMunicipio: string;
+  idUsuario?: number;
+  // Destinatario
+  nombreDestinatario: string | null;
+  telefonoContacto: string | null;
+  documentoIdentidad: string | null;
+  // Ubicación
+  pais: string;
   descripcionDepartamento: string;
+  descripcionMunicipio: string;
+  // Dirección física
+  descripcionDireccion: string;
+  complemento: string | null;
+  descripcionBarrio: string | null;
+  codigoPostal: string | null;
+  indicaciones: string | null;
+  // Preferencias
+  etiqueta: string;
   esPrincipal: boolean;
 }
 
 export interface CreateDireccionPayload {
+  nombreDestinatario?: string;
+  telefonoContacto?: string;
+  documentoIdentidad?: string;
+  pais?: string;
+  descripcionDepartamento: string;
+  descripcionMunicipio: string;
   descripcionDireccion: string;
+  complemento?: string;
   descripcionBarrio?: string;
+  codigoPostal?: string;
+  indicaciones?: string;
+  etiqueta?: string;
+  esPrincipal?: boolean;
+}
+
+export interface ItemPedidoDetalle {
+  idDetallePedido: number;
+  idVariante: number;
+  cantidad: number;
+  precioUnitario: number;
+  subtotalItem: number;
+  sku: string;
+  referencia: string;
+  color: string | null;
+  codigoHexColor: string | null;
+  medida: string | null;
+  nombreProducto: string | null;
+  imagenProducto: string | null;
+  slugProducto: string | null;
+}
+
+export interface PedidoDetalle {
+  idPedido: number;
+  idDireccion: number;
+  idEstadoPedido: number;
+  fechaPedido: string;
+  subtotal: number;
+  descuento: number;
+  costoEnvio: number;
+  total: number;
+  descripcionEstado: string;
+  // Dirección
+  descripcionDireccion: string;
+  descripcionBarrio: string | null;
   descripcionMunicipio: string;
   descripcionDepartamento: string;
-  esPrincipal?: boolean;
+  pais: string;
+  codigoPostal: string | null;
+  complemento: string | null;
+  indicaciones: string | null;
+  nombreDestinatario: string | null;
+  telefonoContacto: string | null;
+  documentoIdentidad: string | null;
+  etiqueta: string | null;
+  // Ítems
+  detalles: ItemPedidoDetalle[];
 }
 
 export interface CreatePedidoPayload {
@@ -253,6 +333,23 @@ export const SueñosDoradosAPI = {
     return res.json();
   },
 
+  actualizarDireccion: async (
+    token: string,
+    id: number,
+    payload: Partial<CreateDireccionPayload>
+  ): Promise<DireccionAPI> => {
+    const res = await fetch(`${API_URL}/direcciones/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message ?? "Error al actualizar dirección");
+    }
+    return res.json();
+  },
+
   eliminarDireccion: async (token: string, id: number): Promise<void> => {
     const res = await fetch(`${API_URL}/direcciones/${id}`, {
       method: "DELETE",
@@ -281,6 +378,60 @@ export const SueñosDoradosAPI = {
       cache: "no-store",
     });
     if (!res.ok) throw new Error("Error al obtener pedidos");
+    return res.json();
+  },
+
+  vaciarCarrito: async (token: string): Promise<void> => {
+    await fetch(`${API_URL}/usuarios/carrito`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  },
+
+  // ── Bold — Pasarela de pagos real (API Link de pagos) ────────────────────
+  /**
+   * Crea un link de pago Bold con monto fijo (CLOSE).
+   * Bold muestra PSE, Nequi, Tarjeta y Bancolombia en una sola pantalla.
+   * No requiere seleccionar banco por separado — Bold lo maneja.
+   */
+  crearLinkDePago: async (
+    token: string,
+    payload: {
+      idPedido: number;
+      totalCOP: number;
+      descripcion: string;
+      correoComprador: string;
+    }
+  ): Promise<{ checkoutUrl: string; linkId: string; referenceId: string }> => {
+    const res = await fetch(`${API_URL}/pagos/crear`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      const msg = Array.isArray(err.message) ? err.message.join(", ") : (err.message ?? "Error al crear link de pago");
+      throw new Error(msg);
+    }
+    const data = await res.json();
+    if (!data.checkoutUrl) throw new Error("Bold no devolvió la URL del checkout");
+    return {
+      checkoutUrl: data.checkoutUrl,
+      linkId:      data.linkId,
+      referenceId: data.referenceId,
+    };
+  },
+
+  /**
+   * Consulta el estado de un link Bold por su linkId.
+   * Estados: ACTIVE | PROCESSING | PAID | REJECTED | CANCELLED | EXPIRED
+   */
+  consultarEstadoPago: async (token: string, linkId: string) => {
+    const res = await fetch(`${API_URL}/pagos/estado/${linkId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error("No se pudo consultar el estado del pago");
     return res.json();
   },
 };

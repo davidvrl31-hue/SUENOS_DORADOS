@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Pedido } from '../pedidos/entities/pedido.entity';
@@ -239,4 +239,180 @@ export class AdminService {
     `);
     return rows.map((r: any) => ({ label: r.label, value: Number(r.value) }));
   }
+
+  // ── Endpoints genéricos para soporte de PyFlet Desktop ──
+  async listarTablaGenerica(table: string) {
+    if (!ALLOWED_TABLES.has(table)) {
+      throw new BadRequestException(`Acceso denegado a la tabla ${table}`);
+    }
+    const query = `SELECT * FROM ${table}`;
+    try {
+      const rows = await this.dataSource.query(query);
+      return rows.map(r => convertKeysToCamel(r));
+    } catch (e: any) {
+      throw new BadRequestException(`Error al listar de ${table}: ${e.message}`);
+    }
+  }
+
+  async crearRegistroGenerico(table: string, body: any) {
+    if (!ALLOWED_TABLES.has(table)) {
+      throw new BadRequestException(`Acceso denegado a la tabla ${table}`);
+    }
+    const snakeBody = convertKeysToSnake(body);
+    const keys = Object.keys(snakeBody);
+    if (keys.length === 0) {
+      throw new BadRequestException('El cuerpo de la solicitud no puede estar vacío');
+    }
+
+    const columns = keys.join(', ');
+    const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+    const values = keys.map(k => snakeBody[k]);
+
+    const pk = PK_MAP[table] || 'id';
+
+    const query = `
+      INSERT INTO ${table} (${columns})
+      VALUES (${placeholders})
+      RETURNING *
+    `;
+
+    try {
+      const rows = await this.dataSource.query(query, values);
+      return convertKeysToCamel(rows[0]);
+    } catch (e: any) {
+      throw new BadRequestException(`Error al insertar en ${table}: ${e.message}`);
+    }
+  }
+
+  async actualizarRegistroGenerico(table: string, id: string, body: any) {
+    if (!ALLOWED_TABLES.has(table)) {
+      throw new BadRequestException(`Acceso denegado a la tabla ${table}`);
+    }
+    const snakeBody = convertKeysToSnake(body);
+    const keys = Object.keys(snakeBody);
+    if (keys.length === 0) {
+      throw new BadRequestException('El cuerpo de la solicitud no puede estar vacío');
+    }
+
+    const pk = PK_MAP[table] || 'id';
+
+    // Filtramos la PK del cuerpo para que no se actualice a sí misma
+    const keysToSet = keys.filter(k => k !== pk);
+    if (keysToSet.length === 0) {
+      throw new BadRequestException('No hay campos para actualizar');
+    }
+
+    const setClause = keysToSet.map((k, i) => `${k} = $${i + 2}`).join(', ');
+    const values = [id, ...keysToSet.map(k => snakeBody[k])];
+
+    const query = `
+      UPDATE ${table}
+      SET ${setClause}
+      WHERE ${pk} = $1
+      RETURNING *
+    `;
+
+    try {
+      const rows = await this.dataSource.query(query, values);
+      if (rows.length === 0) {
+        throw new NotFoundException(`Registro con ${pk} = ${id} no encontrado en ${table}`);
+      }
+      return convertKeysToCamel(rows[0]);
+    } catch (e: any) {
+      if (e instanceof NotFoundException) throw e;
+      throw new BadRequestException(`Error al actualizar en ${table}: ${e.message}`);
+    }
+  }
+
+  async eliminarRegistroGenerico(table: string, id: string) {
+    if (!ALLOWED_TABLES.has(table)) {
+      throw new BadRequestException(`Acceso denegado a la tabla ${table}`);
+    }
+    const pk = PK_MAP[table] || 'id';
+    const query = `
+      DELETE FROM ${table}
+      WHERE ${pk} = $1
+      RETURNING *
+    `;
+    try {
+      const rows = await this.dataSource.query(query, [id]);
+      if (rows.length === 0) {
+        throw new NotFoundException(`Registro con ${pk} = ${id} no encontrado en ${table}`);
+      }
+      return convertKeysToCamel(rows[0]);
+    } catch (e: any) {
+      if (e instanceof NotFoundException) throw e;
+      throw new BadRequestException(`Error al eliminar de ${table}: ${e.message}`);
+    }
+  }
+}
+
+// ── Tablas y PKs permitidas para el endpoint genérico ──
+const PK_MAP: Record<string, string> = {
+  categorias: 'id_categoria',
+  colores: 'id_color',
+  medidas: 'id_medida',
+  colecciones: 'id_coleccion',
+  usuarios: 'id_usuario',
+  direcciones: 'id_direccion',
+  productos: 'id_producto',
+  descuentos: 'id',
+  imagenes_producto: 'id_imagen',
+  pedidos: 'id_pedido',
+  variantes_producto: 'id_variante',
+  detalle_pedido: 'id_detalle_pedido',
+  envio: 'id_envio',
+  movimientos_inventario: 'id_movimiento',
+  pagos: 'id_pago',
+};
+
+const ALLOWED_TABLES = new Set([
+  'categorias',
+  'colores',
+  'medidas',
+  'colecciones',
+  'usuarios',
+  'direcciones',
+  'productos',
+  'descuentos',
+  'imagenes_producto',
+  'pedidos',
+  'variantes_producto',
+  'detalle_pedido',
+  'envio',
+  'movimientos_inventario',
+  'pagos',
+  'estado_pedido',
+  'estado_envio',
+  'configuracion_empresa',
+  'roles',
+]);
+
+// ── Utilidades de conversión camelCase <-> snake_case ──
+function camelToSnake(str: string): string {
+  return str.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
+}
+
+function convertKeysToSnake(obj: any): any {
+  if (typeof obj !== 'object' || obj === null) return obj;
+  const res: any = {};
+  for (const key of Object.keys(obj)) {
+    res[camelToSnake(key)] = obj[key];
+  }
+  return res;
+}
+
+function snakeToCamel(str: string): string {
+  return str.replace(/([-_][a-z])/g, group =>
+    group.toUpperCase().replace('-', '').replace('_', ''),
+  );
+}
+
+function convertKeysToCamel(obj: any): any {
+  if (typeof obj !== 'object' || obj === null) return obj;
+  const res: any = {};
+  for (const key of Object.keys(obj)) {
+    res[snakeToCamel(key)] = obj[key];
+  }
+  return res;
 }

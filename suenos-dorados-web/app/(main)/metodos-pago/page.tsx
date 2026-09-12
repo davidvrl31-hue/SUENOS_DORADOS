@@ -139,17 +139,18 @@ export default function MetodosPagoPage() {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
 
-      {/* Header */}
+      {/* Encabezado único — flecha solo en escritorio para evitar duplicados en móvil */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/perfil" className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+          <Link href="/perfil" className="hidden md:flex p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <ArrowLeft size={20} className="text-gray-600" />
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">Métodos de pago</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-900">Métodos de pago</h1>
         </div>
+        {/* Botón compacto */}
         <button onClick={abrirModal}
-          className="flex items-center gap-2 btn-primary text-sm px-4 py-2">
-          <Plus size={16} /> Agregar
+          className="flex items-center gap-1.5 bg-primary hover:bg-primary-dark text-white text-sm font-semibold px-4 py-2 rounded-xl transition-colors">
+          <Plus size={15} /> Agregar
         </button>
       </div>
 

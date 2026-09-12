@@ -4,6 +4,8 @@ import Image from "next/image";
 import { Heart, ShoppingCart, Trash2 } from "lucide-react";
 import { useApp } from "@/app/context/AppContext";
 
+const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80";
+
 export default function FavoritosPage() {
   const { favorites, toggleFavorite, addToCart } = useApp();
 
@@ -33,13 +35,22 @@ export default function FavoritosPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {favorites.map((item) => (
-          <div key={item.id} className="card overflow-hidden flex gap-4 p-4">
-            <div className="relative w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100">
-              <Image src={item.image} alt={item.name} fill className="object-cover" />
-            </div>
+          <div key={item.id} className="card overflow-hidden flex gap-4 p-4 group">
+            {/* Imagen clickeable → navega al detalle */}
+            <Link href={`/producto/${item.id}`} className="relative w-24 h-24 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100 block hover:opacity-90 transition-opacity">
+              <img
+                src={item.image && item.image.trim() !== "" ? item.image : PLACEHOLDER_IMAGE}
+                alt={item.name}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = PLACEHOLDER_IMAGE; }}
+              />
+            </Link>
             <div className="flex-1 min-w-0">
               <p className="text-xs text-gray-400">{item.category}</p>
-              <h3 className="text-sm font-semibold text-gray-800 leading-tight line-clamp-2">{item.name}</h3>
+              {/* Nombre clickeable → navega al detalle */}
+              <Link href={`/producto/${item.id}`}>
+                <h3 className="text-sm font-semibold text-gray-800 leading-tight line-clamp-2 hover:text-primary transition-colors">{item.name}</h3>
+              </Link>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-primary font-bold text-sm">
                   ${item.price.toLocaleString("es-CO")}
@@ -73,3 +84,5 @@ export default function FavoritosPage() {
     </div>
   );
 }
+
+

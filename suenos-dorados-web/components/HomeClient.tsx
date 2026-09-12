@@ -1,6 +1,5 @@
 "use client";
 import Link from "next/link";
-import Image from "next/image";
 import { Truck, Tag, Star, ChevronRight } from "lucide-react";
 import ProductCard from "@/components/ProductCard";
 import { Product } from "@/app/context/AppContext";
@@ -25,30 +24,20 @@ export default function HomeClient({ products, categories }: HomeClientProps) {
     <div className="space-y-8">
       {/* Hero Banner */}
       <section className="relative bg-gradient-to-r from-primary to-amber-400 rounded-3xl overflow-hidden">
-        <div className="flex flex-col md:flex-row items-center px-8 py-10 gap-6">
-          <div className="flex-1 text-white">
-            <span className="text-xs font-semibold bg-white/20 px-3 py-1 rounded-full">
-              Nueva colección
-            </span>
-            <h1 className="text-3xl md:text-4xl font-bold mt-3 leading-tight">
-              El descanso<br />que mereces
-            </h1>
-            <p className="text-white/80 mt-2 text-sm">Hasta 30% off en toda la colección</p>
-            <Link
-              href="/busqueda"
-              className="inline-flex items-center gap-2 mt-5 bg-white text-primary font-semibold px-5 py-2.5 rounded-xl hover:bg-primary-light transition-colors text-sm"
-            >
-              Ver colección <ChevronRight size={16} />
-            </Link>
-          </div>
-          <div className="relative w-48 h-48 md:w-56 md:h-56 flex-shrink-0">
-            <Image
-              src="https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80"
-              alt="Edredón Premium"
-              fill
-              className="object-cover rounded-2xl shadow-xl"
-            />
-          </div>
+        <div className="px-8 py-10 text-white">
+          <span className="text-xs font-semibold bg-white/20 px-3 py-1 rounded-full inline-block">
+            Nueva colección
+          </span>
+          <h1 className="text-3xl md:text-4xl font-bold mt-3 leading-tight">
+            El descanso<br />que mereces
+          </h1>
+          <p className="text-white/90 mt-2 text-sm">Hasta 30% off en toda la colección</p>
+          <Link
+            href="/busqueda"
+            className="inline-flex items-center gap-2 mt-5 bg-white text-primary font-semibold px-5 py-2.5 rounded-xl hover:bg-primary-light transition-colors text-sm"
+          >
+            Ver colección <ChevronRight size={16} />
+          </Link>
         </div>
       </section>
 

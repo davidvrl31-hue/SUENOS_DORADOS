@@ -1,47 +1,54 @@
 "use client";
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Minus, Plus, Trash2, ShoppingBag, Truck,
-  Loader2, CheckCircle2, MapPin, ChevronDown, ChevronUp,
+  Loader2, MapPin, ChevronDown, ChevronUp, CreditCard, X,
 } from "lucide-react";
 import { useApp } from "@/app/context/AppContext";
+import type { CartItem } from "@/app/context/AppContext";
 import { SueñosDoradosAPI, DireccionAPI } from "@/src/services/api.service";
+
+const DIR_VACIO = {
+  nombreDestinatario:      "",
+  telefonoContacto:        "",
+  documentoIdentidad:      "",
+  pais:                    "Colombia",
+  descripcionDepartamento: "",
+  descripcionMunicipio:    "",
+  descripcionDireccion:    "",
+  complemento:             "",
+  descripcionBarrio:       "",
+  codigoPostal:            "",
+  indicaciones:            "",
+  etiqueta:                "Casa",
+  esPrincipal:             true,
+};
 
 export default function CarritoPage() {
   const { cart, removeFromCart, updateQty, clearCart, user, loadOrders } = useApp();
   const router = useRouter();
 
-  const [loading, setLoading]           = useState(false);
-  const [error, setError]               = useState("");
-  const [success, setSuccess]           = useState(false);
+  const [step,    setStep]    = useState<"cart" | "redirigiendo">("cart");
+  const [loading, setLoading] = useState(false);
+  const [error,   setError]   = useState("");
 
-  // Direcciones
-  const [direcciones, setDirecciones]   = useState<DireccionAPI[]>([]);
-  const [idDireccionSel, setIdDir]      = useState<number | null>(null);
-  const [loadingDirs, setLoadingDirs]   = useState(false);
+  // ── Direcciones ───────────────────────────────────────────────────────────
+  const [direcciones,      setDirecciones]   = useState<DireccionAPI[]>([]);
+  const [idDireccionSel,   setIdDir]         = useState<number | null>(null);
+  const [loadingDirs,      setLoadingDirs]   = useState(false);
+  const [showNuevaDireccion, setShowNueva]   = useState(false);
+  const [savingDir,        setSavingDir]     = useState(false);
+  const [dirError,         setDirError]      = useState("");
+  const [dirForm,          setDirForm]       = useState(DIR_VACIO);
 
-  // Formulario nueva dirección inline
-  const [showNuevaDireccion, setShowNueva] = useState(false);
-  const [savingDir, setSavingDir]          = useState(false);
-  const [dirError, setDirError]            = useState("");
-  const [dirForm, setDirForm]              = useState({
-    descripcionDireccion: "",
-    descripcionBarrio: "",
-    descripcionMunicipio: "",
-    descripcionDepartamento: "",
-    esPrincipal: true,
-  });
+  // ── Cálculos ──────────────────────────────────────────────────────────────
+  const subtotal         = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+  const envio            = subtotal >= 100_000 ? 0 : 15_000;
+  const total            = subtotal + envio;
+  const faltaEnvioGratis = Math.max(0, 100_000 - subtotal);
 
-  // Cálculos
-  const subtotal            = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-  const envio               = subtotal >= 100000 ? 0 : 15000;
-  const total               = subtotal + envio;
-  const faltaEnvioGratis    = Math.max(0, 100000 - subtotal);
-
-  // Cargar direcciones cuando hay usuario
   const cargarDirecciones = async () => {
     if (!user?.token) return;
     setLoadingDirs(true);
@@ -52,92 +59,94 @@ export default function CarritoPage() {
         const principal = dirs.find((d) => d.esPrincipal) ?? dirs[0];
         setIdDir(principal.idDireccion);
       }
-    } catch {
-      // silencioso — se muestra el formulario vacío
-    } finally {
-      setLoadingDirs(false);
-    }
+    } catch { /* silencioso */ }
+    finally { setLoadingDirs(false); }
   };
 
   useEffect(() => { cargarDirecciones(); }, [user?.token]); // eslint-disable-line
 
-  // Guardar nueva dirección
+  // Guardar nueva dirección con campos completos
   const handleGuardarDireccion = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.token) return;
-    if (!dirForm.descripcionDireccion.trim() || !dirForm.descripcionMunicipio.trim() || !dirForm.descripcionDepartamento.trim()) {
-      setDirError("Completa dirección, municipio y departamento");
+    if (!dirForm.descripcionDireccion.trim() || !dirForm.descripcionBarrio.trim() ||
+        !dirForm.descripcionMunicipio.trim()  || !dirForm.descripcionDepartamento.trim() ||
+        !dirForm.nombreDestinatario.trim()    || !dirForm.telefonoContacto.trim()) {
+      setDirError("Completa todos los campos obligatorios (*)");
       return;
     }
     setSavingDir(true);
     setDirError("");
     try {
       const nueva = await SueñosDoradosAPI.crearDireccion(user.token, {
-        descripcionDireccion: dirForm.descripcionDireccion.trim(),
-        descripcionBarrio: dirForm.descripcionBarrio.trim() || undefined,
-        descripcionMunicipio: dirForm.descripcionMunicipio.trim(),
+        nombreDestinatario:      dirForm.nombreDestinatario.trim(),
+        telefonoContacto:        dirForm.telefonoContacto.trim(),
+        documentoIdentidad:      dirForm.documentoIdentidad.trim() || undefined,
+        pais:                    "Colombia",
         descripcionDepartamento: dirForm.descripcionDepartamento.trim(),
-        esPrincipal: dirForm.esPrincipal,
+        descripcionMunicipio:    dirForm.descripcionMunicipio.trim(),
+        descripcionDireccion:    dirForm.descripcionDireccion.trim(),
+        complemento:             dirForm.complemento.trim() || undefined,
+        descripcionBarrio:       dirForm.descripcionBarrio.trim(),
+        codigoPostal:            dirForm.codigoPostal.trim() || undefined,
+        indicaciones:            dirForm.indicaciones.trim() || undefined,
+        etiqueta:                dirForm.etiqueta || "Casa",
+        esPrincipal:             dirForm.esPrincipal,
       });
       setDirecciones((prev) => [...prev, nueva]);
       setIdDir(nueva.idDireccion);
       setShowNueva(false);
-      setDirForm({ descripcionDireccion: "", descripcionBarrio: "", descripcionMunicipio: "", descripcionDepartamento: "", esPrincipal: true });
+      setDirForm(DIR_VACIO);
     } catch (err) {
       setDirError(err instanceof Error ? err.message : "Error al guardar dirección");
-    } finally {
-      setSavingDir(false);
-    }
+    } finally { setSavingDir(false); }
   };
 
-  // Finalizar compra
+  // ── CHECKOUT ──────────────────────────────────────────────────────────────
   const handleCheckout = async () => {
     if (!user) { router.push("/login"); return; }
-
     if (!idDireccionSel) {
-      setError("Debes seleccionar o agregar una dirección de entrega");
+      setError("Selecciona o agrega una dirección de entrega");
       setShowNueva(true);
       return;
     }
-
-    setLoading(true);
     setError("");
+    setLoading(true);
     try {
-      await SueñosDoradosAPI.crearPedido(user.token, {
+      const orderData = await SueñosDoradosAPI.crearPedido(user.token, {
         idDireccion: idDireccionSel,
         items: cart.map((item) => ({
-          idVariante: item.idVariante ?? 1,
-          cantidad: item.quantity,
+          idVariante:     item.idVariante ?? 1,
+          cantidad:       item.quantity,
           precioUnitario: item.price,
         })),
         costoEnvio: envio,
       });
+
+      const { checkoutUrl, linkId, referenceId } = await SueñosDoradosAPI.crearLinkDePago(
+        user.token,
+        {
+          idPedido:        orderData.idPedido,
+          totalCOP:        Math.round(total),
+          descripcion:     `Pedido #${orderData.idPedido} — Sueños Dorados`,
+          correoComprador: user.email,
+        }
+      );
+
       clearCart();
       await loadOrders();
-      setSuccess(true);
-      setTimeout(() => router.push("/mis-pedidos"), 2000);
+      sessionStorage.setItem("bold_link_id",  linkId);
+      sessionStorage.setItem("bold_reference", referenceId);
+      sessionStorage.setItem("bold_pedido_id", String(orderData.idPedido));
+      setStep("redirigiendo");
+      setTimeout(() => { window.location.href = checkoutUrl; }, 1200);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al procesar el pedido. Intenta de nuevo.");
-    } finally {
-      setLoading(false);
-    }
+      setError(err instanceof Error ? err.message : "Error al crear el pago");
+    } finally { setLoading(false); }
   };
 
-  // ── Pantalla de éxito ────────────────────────────────────────────────────────
-  if (success) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-center">
-        <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-5">
-          <CheckCircle2 size={36} className="text-green-600" />
-        </div>
-        <h2 className="text-xl font-bold text-gray-800 mb-2">¡Pedido realizado con éxito!</h2>
-        <p className="text-gray-500 text-sm">Redirigiendo a tus pedidos...</p>
-      </div>
-    );
-  }
-
-  // ── Carrito vacío ────────────────────────────────────────────────────────────
-  if (cart.length === 0) {
+  // ── Carrito vacío ─────────────────────────────────────────────────────────
+  if (cart.length === 0 && step === "cart") {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <div className="w-20 h-20 bg-primary-light rounded-full flex items-center justify-center mb-5">
@@ -150,7 +159,31 @@ export default function CarritoPage() {
     );
   }
 
-  // ── Vista principal ──────────────────────────────────────────────────────────
+  // ── Redirigiendo a Bold ───────────────────────────────────────────────────
+  if (step === "redirigiendo") {
+    return (
+      <div className="max-w-lg mx-auto py-20 px-4 text-center">
+        <div className="card p-10 flex flex-col items-center gap-6 rounded-3xl border border-gray-100 shadow-lg">
+          <div className="w-20 h-20 bg-primary-light rounded-full flex items-center justify-center">
+            <CreditCard size={36} className="text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Preparando tu pago...</h2>
+            <p className="text-sm text-gray-500">
+              Te llevamos a la pasarela de Bold donde podrás pagar con PSE,
+              Nequi, tarjeta o Bancolombia.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <Loader2 size={14} className="animate-spin" />
+            Conectando con Bold...
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Vista principal ───────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Mi carrito</h1>
@@ -163,33 +196,66 @@ export default function CarritoPage() {
         {/* ── Lista de productos ── */}
         <div className="lg:col-span-2 space-y-3">
           {cart.map((item) => (
-            <div key={`${item.id}-${item.idVariante ?? 0}`} className="card p-4 flex gap-4">
-              <div className="relative w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100">
-                <Image src={item.image} alt={item.name} fill className="object-cover" sizes="80px" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-400">{item.category}</p>
-                <h3 className="text-sm font-semibold text-gray-800 leading-tight">{item.name}</h3>
-                {item.sku && <p className="text-xs text-gray-400 mt-0.5">SKU: {item.sku}</p>}
-                <span className="text-primary font-bold text-sm mt-1 block">
-                  ${item.price.toLocaleString("es-CO")}
-                </span>
-                <div className="flex items-center justify-between mt-3">
-                  <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-                    <button onClick={() => updateQty(item.id, item.quantity - 1)}
-                      className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-white transition-colors">
-                      <Minus size={14} />
-                    </button>
-                    <span className="text-sm font-semibold w-8 text-center">{item.quantity}</span>
-                    <button onClick={() => updateQty(item.id, item.quantity + 1)}
-                      className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-white transition-colors">
-                      <Plus size={14} />
+            <div key={`${item.id}-${item.idVariante ?? 0}`} className="card p-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link
+                  href={`/producto/${item.id}?variante=${item.idVariante}`}
+                  className="relative w-full sm:w-24 h-44 sm:h-24 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100 hover:opacity-90 transition-opacity"
+                >
+                  <img
+                    src={item.image || "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80"}
+                    alt={item.name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src =
+                        "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80";
+                    }}
+                  />
+                </Link>
+                <div className="flex-1 min-w-0 flex flex-col gap-1">
+                  {item.category && (
+                    <span className="inline-flex w-fit text-[10px] font-semibold uppercase tracking-wider bg-primary-light text-primary px-2 py-0.5 rounded-full">
+                      {item.category}
+                    </span>
+                  )}
+                  <Link href={`/producto/${item.id}?variante=${item.idVariante}`}>
+                    <h3 className="text-sm font-bold text-gray-800 leading-snug hover:text-primary transition-colors break-words">
+                      {item.name}
+                    </h3>
+                  </Link>
+                  {item.sku && <p className="text-xs text-gray-400 font-mono">SKU: {item.sku}</p>}
+                  <div className="flex items-baseline gap-3 mt-1">
+                    <span className="text-primary font-bold text-base">
+                      ${item.price.toLocaleString("es-CO")}
+                      <span className="text-xs font-normal text-gray-400 ml-1">/ unidad</span>
+                    </span>
+                    {item.quantity > 1 && (
+                      <span className="text-xs text-gray-500">
+                        Subtotal: <strong className="text-gray-700">${(item.price * item.quantity).toLocaleString("es-CO")}</strong>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+                      <button onClick={() => updateQty(item.id, item.quantity - 1, item.idVariante)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white transition-colors active:scale-95">
+                        <Minus size={14} />
+                      </button>
+                      <span className="text-sm font-bold w-10 text-center">{item.quantity}</span>
+                      <button
+                        onClick={() => updateQty(item.id, item.quantity + 1, item.idVariante)}
+                        disabled={item.stockDisponible !== undefined && item.quantity >= item.stockDisponible}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white transition-colors active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+                        title={item.stockDisponible !== undefined && item.quantity >= item.stockDisponible ? `Máximo: ${item.stockDisponible}` : undefined}
+                      >
+                        <Plus size={14} />
+                      </button>
+                    </div>
+                    <button onClick={() => removeFromCart(item.id, item.idVariante)}
+                      className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg transition-colors">
+                      <Trash2 size={14} />
                     </button>
                   </div>
-                  <button onClick={() => removeFromCart(item.id)}
-                    className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                    <Trash2 size={16} />
-                  </button>
                 </div>
               </div>
             </div>
@@ -199,7 +265,7 @@ export default function CarritoPage() {
         {/* ── Panel derecho ── */}
         <div className="space-y-4">
 
-          {/* Barra progreso envío gratis */}
+          {/* Barra envío gratis */}
           {faltaEnvioGratis > 0 && (
             <div className="card p-4 bg-primary-light">
               <div className="flex items-center gap-2 mb-2">
@@ -210,12 +276,12 @@ export default function CarritoPage() {
               </div>
               <div className="w-full bg-white rounded-full h-2">
                 <div className="bg-primary h-2 rounded-full transition-all"
-                  style={{ width: `${Math.min(100, (subtotal / 100000) * 100)}%` }} />
+                  style={{ width: `${Math.min(100, (subtotal / 100_000) * 100)}%` }} />
               </div>
             </div>
           )}
 
-          {/* ── Sección dirección ── */}
+          {/* ── Dirección ── */}
           {user ? (
             <div className="card p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -224,21 +290,22 @@ export default function CarritoPage() {
                 </h3>
                 <button
                   onClick={() => { setShowNueva((v) => !v); setDirError(""); }}
-                  className="text-xs text-primary hover:underline flex items-center gap-1">
-                  {showNuevaDireccion ? <><ChevronUp size={12} /> Cerrar</> : <><Plus size={12} /> Nueva</>}
+                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                >
+                  {showNuevaDireccion
+                    ? <><ChevronUp size={12} /> Cerrar</>
+                    : <><Plus size={12} /> Nueva</>}
                 </button>
               </div>
 
-              {/* Lista de direcciones existentes */}
               {loadingDirs ? (
                 <div className="flex items-center gap-2 text-sm text-gray-400">
-                  <Loader2 size={14} className="animate-spin" /> Cargando direcciones...
+                  <Loader2 size={14} className="animate-spin" /> Cargando...
                 </div>
               ) : direcciones.length === 0 && !showNuevaDireccion ? (
                 <div className="text-center py-3">
                   <p className="text-xs text-gray-500 mb-2">No tienes direcciones guardadas</p>
-                  <button onClick={() => setShowNueva(true)}
-                    className="text-xs text-primary font-semibold hover:underline">
+                  <button onClick={() => setShowNueva(true)} className="text-xs text-primary font-semibold hover:underline">
                     + Agregar dirección
                   </button>
                 </div>
@@ -247,18 +314,24 @@ export default function CarritoPage() {
                   {direcciones.map((d) => (
                     <label key={d.idDireccion}
                       className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
-                        idDireccionSel === d.idDireccion
-                          ? "border-primary bg-primary-light"
-                          : "border-gray-200 hover:border-primary/50"
+                        idDireccionSel === d.idDireccion ? "border-primary bg-primary-light" : "border-gray-200 hover:border-primary/50"
                       }`}>
                       <input type="radio" name="direccion"
                         checked={idDireccionSel === d.idDireccion}
                         onChange={() => { setIdDir(d.idDireccion); setError(""); }}
                         className="mt-0.5 accent-primary flex-shrink-0" />
                       <div className="text-xs min-w-0">
-                        <p className="font-semibold text-gray-800 truncate">{d.descripcionDireccion}</p>
-                        {d.descripcionBarrio && <p className="text-gray-500">{d.descripcionBarrio}</p>}
-                        <p className="text-gray-500">{d.descripcionMunicipio}, {d.descripcionDepartamento}</p>
+                        {d.etiqueta && (
+                          <p className="text-[10px] font-bold text-primary uppercase tracking-wide">{d.etiqueta}</p>
+                        )}
+                        {d.nombreDestinatario && (
+                          <p className="font-semibold text-gray-800">{d.nombreDestinatario}</p>
+                        )}
+                        <p className="text-gray-700">{d.descripcionDireccion}</p>
+                        {d.complemento && <p className="text-gray-500">{d.complemento}</p>}
+                        <p className="text-gray-500">
+                          {[d.descripcionBarrio, d.descripcionMunicipio, d.descripcionDepartamento].filter(Boolean).join(", ")}
+                        </p>
                         {d.esPrincipal && <span className="text-primary font-semibold">Principal</span>}
                       </div>
                     </label>
@@ -266,45 +339,79 @@ export default function CarritoPage() {
                 </div>
               )}
 
-              {/* Formulario nueva dirección inline */}
+              {/* Formulario nueva dirección inline — compacto */}
               {showNuevaDireccion && (
-                <form onSubmit={handleGuardarDireccion} className="space-y-3 border-t border-gray-100 pt-3">
+                <form onSubmit={handleGuardarDireccion} className="space-y-2.5 border-t border-gray-100 pt-3">
                   <p className="text-xs font-semibold text-gray-700">Nueva dirección</p>
-
                   {dirError && (
-                    <div className="bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2 rounded-lg">
-                      {dirError}
-                    </div>
+                    <div className="bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2 rounded-lg">{dirError}</div>
                   )}
 
-                  <input type="text" placeholder="Dirección *"
-                    className="input-field text-sm"
-                    value={dirForm.descripcionDireccion}
-                    onChange={(e) => setDirForm({ ...dirForm, descripcionDireccion: e.target.value })} />
-
-                  <input type="text" placeholder="Barrio (opcional)"
-                    className="input-field text-sm"
-                    value={dirForm.descripcionBarrio}
-                    onChange={(e) => setDirForm({ ...dirForm, descripcionBarrio: e.target.value })} />
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <input type="text" placeholder="Municipio *"
-                      className="input-field text-sm"
-                      value={dirForm.descripcionMunicipio}
-                      onChange={(e) => setDirForm({ ...dirForm, descripcionMunicipio: e.target.value })} />
-                    <input type="text" placeholder="Departamento *"
-                      className="input-field text-sm"
-                      value={dirForm.descripcionDepartamento}
-                      onChange={(e) => setDirForm({ ...dirForm, descripcionDepartamento: e.target.value })} />
+                  {/* Etiqueta */}
+                  <div className="flex gap-1.5">
+                    {["Casa", "Trabajo", "Otra"].map((e) => (
+                      <button key={e} type="button"
+                        onClick={() => setDirForm((p) => ({ ...p, etiqueta: e }))}
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded-lg border-2 transition-colors ${
+                          dirForm.etiqueta === e ? "border-primary bg-primary-light text-primary" : "border-gray-200 text-gray-400"
+                        }`}>{e}</button>
+                    ))}
                   </div>
 
+                  <input type="text" placeholder="Nombre destinatario *" className="input-field text-sm"
+                    value={dirForm.nombreDestinatario}
+                    onChange={(e) => setDirForm((p) => ({ ...p, nombreDestinatario: e.target.value }))} required />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="tel" placeholder="Teléfono *" className="input-field text-sm"
+                      value={dirForm.telefonoContacto}
+                      onChange={(e) => setDirForm((p) => ({ ...p, telefonoContacto: e.target.value }))} required />
+                    <input type="text" placeholder="Cédula / NIT" className="input-field text-sm"
+                      value={dirForm.documentoIdentidad}
+                      onChange={(e) => setDirForm((p) => ({ ...p, documentoIdentidad: e.target.value }))} />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="text" placeholder="Departamento *" className="input-field text-sm"
+                      value={dirForm.descripcionDepartamento}
+                      onChange={(e) => setDirForm((p) => ({ ...p, descripcionDepartamento: e.target.value }))} required />
+                    <input type="text" placeholder="Municipio *" className="input-field text-sm"
+                      value={dirForm.descripcionMunicipio}
+                      onChange={(e) => setDirForm((p) => ({ ...p, descripcionMunicipio: e.target.value }))} required />
+                  </div>
+
+                  <input type="text" placeholder="Dirección (Calle, Carrera, #...) *" className="input-field text-sm"
+                    value={dirForm.descripcionDireccion}
+                    onChange={(e) => setDirForm((p) => ({ ...p, descripcionDireccion: e.target.value }))} required />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="text" placeholder="Barrio / Sector *" className="input-field text-sm"
+                      value={dirForm.descripcionBarrio}
+                      onChange={(e) => setDirForm((p) => ({ ...p, descripcionBarrio: e.target.value }))} required />
+                    <input type="text" placeholder="Apto / Piso / Bloque" className="input-field text-sm"
+                      value={dirForm.complemento}
+                      onChange={(e) => setDirForm((p) => ({ ...p, complemento: e.target.value }))} />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <input type="text" placeholder="Código postal" className="input-field text-sm"
+                      value={dirForm.codigoPostal}
+                      onChange={(e) => setDirForm((p) => ({ ...p, codigoPostal: e.target.value }))} />
+                    <div className="flex items-center gap-2 pl-1">
+                      <input type="checkbox" id="esPrincipalCart" checked={dirForm.esPrincipal}
+                        onChange={(e) => setDirForm((p) => ({ ...p, esPrincipal: e.target.checked }))}
+                        className="accent-primary w-4 h-4" />
+                      <label htmlFor="esPrincipalCart" className="text-xs text-gray-600 cursor-pointer">Principal</label>
+                    </div>
+                  </div>
+
+                  <input type="text" placeholder="Indicaciones (punto de referencia...)" className="input-field text-sm"
+                    value={dirForm.indicaciones}
+                    onChange={(e) => setDirForm((p) => ({ ...p, indicaciones: e.target.value }))} />
+
                   <button type="submit" disabled={savingDir}
-                    className="w-full bg-gray-800 text-white text-sm font-semibold py-2.5 rounded-xl
-                               hover:bg-gray-700 transition-colors flex items-center justify-center gap-2
-                               disabled:opacity-60">
-                    {savingDir
-                      ? <><Loader2 size={14} className="animate-spin" /> Guardando...</>
-                      : "Guardar dirección"}
+                    className="w-full bg-gray-800 text-white text-sm font-semibold py-2.5 rounded-xl hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60">
+                    {savingDir ? <><Loader2 size={14} className="animate-spin" /> Guardando...</> : "Guardar dirección"}
                   </button>
                 </form>
               )}
@@ -313,21 +420,18 @@ export default function CarritoPage() {
             <div className="card p-4 text-center space-y-2">
               <MapPin size={20} className="text-primary mx-auto" />
               <p className="text-sm text-gray-600">
-                <Link href="/login" className="text-primary font-semibold hover:underline">
-                  Inicia sesión
-                </Link>{" "}para guardar tu dirección y finalizar el pedido
+                <Link href="/login" className="text-primary font-semibold hover:underline">Inicia sesión</Link>{" "}
+                para guardar tu dirección y finalizar el pedido
               </p>
             </div>
           )}
 
-          {/* ── Resumen de costos ── */}
+          {/* ── Resumen ── */}
           <div className="card p-5 space-y-3">
             <h3 className="font-bold text-gray-900">Resumen del pedido</h3>
-
             <div className="space-y-2 text-sm">
               <div className="flex justify-between text-gray-600">
-                <span>Subtotal</span>
-                <span>${subtotal.toLocaleString("es-CO")}</span>
+                <span>Subtotal</span><span>${subtotal.toLocaleString("es-CO")}</span>
               </div>
               <div className="flex justify-between text-gray-600">
                 <span>Envío</span>
@@ -342,20 +446,23 @@ export default function CarritoPage() {
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2 rounded-lg">
-                {error}
-              </div>
+              <div className="bg-red-50 border border-red-200 text-red-600 text-xs px-3 py-2 rounded-lg">{error}</div>
             )}
 
-            {/* El botón SIEMPRE está habilitado — la lógica interna maneja cada caso */}
-            <button
-              onClick={handleCheckout}
-              disabled={loading}
+            <button onClick={handleCheckout} disabled={loading}
               className="btn-primary mt-2 w-full flex items-center justify-center gap-2 disabled:opacity-60">
-              {loading
-                ? <><Loader2 size={16} className="animate-spin" /> Procesando...</>
-                : "Finalizar compra →"}
+              {loading ? <><Loader2 size={16} className="animate-spin" /> Procesando...</> : <><CreditCard size={16} /> Ir a pagar →</>}
             </button>
+
+            <div className="text-center space-y-1">
+              <p className="text-[10px] text-gray-400">Métodos de pago aceptados</p>
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                {["PSE", "Nequi", "Tarjeta", "Bancolombia"].map((m) => (
+                  <span key={m} className="text-[10px] font-semibold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{m}</span>
+                ))}
+              </div>
+              <p className="text-[10px] text-gray-400">Pago seguro · Bold Colombia</p>
+            </div>
 
             <Link href="/busqueda" className="block text-center text-sm text-primary hover:underline">
               Seguir comprando

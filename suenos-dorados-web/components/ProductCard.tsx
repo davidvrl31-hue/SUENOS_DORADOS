@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Heart, ShoppingCart } from "lucide-react";
 import { useApp, Product } from "@/app/context/AppContext";
 
@@ -10,11 +11,23 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, compact = false }: ProductCardProps) {
-  const { addToCart, toggleFavorite, favorites } = useApp();
+  const { toggleFavorite, favorites } = useApp();
+  const router = useRouter();
   const isFav = favorites.some((f) => f.id === product.id);
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : null;
+
+  /**
+   * "Comprar" desde la tarjeta redirige al detalle del producto.
+   * Ahí el usuario elige variante (medida/color), ve el stock real
+   * y usa "Agregar al carrito" o "Comprar ahora".
+   * Agregar directamente desde la card sin variante/stock causa los bugs
+   * que queremos evitar.
+   */
+  const handleComprar = () => {
+    router.push(`/producto/${product.id}`);
+  };
 
   return (
     <div className="card overflow-hidden group hover:shadow-md transition-shadow duration-200">
@@ -45,7 +58,7 @@ export default function ProductCard({ product, compact = false }: ProductCardPro
           )}
         </div>
 
-        {/* Favorite button */}
+        {/* Favorito */}
         <button
           onClick={() => toggleFavorite(product)}
           className="absolute top-2 right-2 p-1.5 bg-white rounded-full shadow-sm hover:scale-110 transition-transform"
@@ -75,12 +88,13 @@ export default function ProductCard({ product, compact = false }: ProductCardPro
             </span>
           )}
         </div>
+        {/* Redirige al detalle para elegir variante y respetar stock */}
         <button
-          onClick={() => addToCart(product)}
+          onClick={handleComprar}
           className="w-full bg-primary hover:bg-primary-dark text-white text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
         >
           <ShoppingCart size={14} />
-          Comprar
+          Ver y comprar
         </button>
       </div>
     </div>

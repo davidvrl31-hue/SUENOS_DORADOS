@@ -17,9 +17,14 @@ import { AuthModule } from './auth/auth.module';
 // Pedidos y direcciones
 import { PedidosModule } from './pedidos/pedidos.module';
 import { DireccionesModule } from './direcciones/direcciones.module';
+import { EstadoPedidoModule } from './estado-pedido/estado-pedido.module';
+import { EstadoEnvioModule } from './estado-envio/estado-envio.module';
 
 // Módulo admin (dashboard + gestión desde escritorio)
 import { AdminModule } from './admin/admin.module';
+
+// Pasarela de pagos Bold
+import { BoldModule } from './bold/bold.module';
 
 @Module({
   imports: [
@@ -55,7 +60,10 @@ import { AdminModule } from './admin/admin.module';
     AuthModule,
     PedidosModule,
     DireccionesModule,
+    EstadoPedidoModule,
+    EstadoEnvioModule,
     AdminModule,
+    BoldModule,
   ],
 })
 export class AppModule {}

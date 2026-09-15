@@ -59,28 +59,12 @@ export interface LoginPayload {
   contrasena: string;
 }
 
-export interface DireccionRegistroPayload {
-  pais?: string;
-  descripcionDepartamento: string;
-  descripcionMunicipio: string;
-  descripcionDireccion: string;
-  complemento?: string;
-  descripcionBarrio?: string;
-  codigoPostal?: string;
-  indicaciones?: string;
-  etiqueta?: string;
-  telefonoContacto?: string;
-  esPrincipal?: boolean;
-}
-
 export interface RegistroPayload {
   nombreUsuario: string;
   apellidoUsuario: string;
   correoElectronico: string;
   contrasena: string;
   telefono?: string;
-  /** Dirección inicial opcional — se guarda como dirección principal al registrarse */
-  direccion?: DireccionRegistroPayload;
 }
 
 export interface AuthResponse {
@@ -110,11 +94,6 @@ export interface CreateDireccionPayload {
   descripcionBarrio?: string;
   descripcionMunicipio: string;
   descripcionDepartamento: string;
-  complemento?: string;
-  codigoPostal?: string;
-  indicaciones?: string;
-  etiqueta?: string;
-  telefonoContacto?: string;
   esPrincipal?: boolean;
 }
 
@@ -281,23 +260,6 @@ export const SueñosDoradosAPI = {
     return res.json();
   },
 
-  actualizarDireccion: async (
-    token: string,
-    id: number,
-    payload: Partial<CreateDireccionPayload>,
-  ): Promise<DireccionAPI> => {
-    const res = await fetch(`${API_URL}/direcciones/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.message ?? "Error al actualizar dirección");
-    }
-    return res.json();
-  },
-
   eliminarDireccion: async (token: string, id: number): Promise<void> => {
     const res = await fetch(`${API_URL}/direcciones/${id}`, {
       method: "DELETE",
@@ -375,14 +337,6 @@ export const SueñosDoradosAPI = {
     });
     if (!res.ok) throw new Error("No se pudo consultar el estado");
     return res.json();
-  },
-
-  // ── Facturas ──────────────────────────────────────────────────────────────
-  /**
-   * Obtiene el PDF de la factura como Blob para compartir/abrir en móvil.
-   */
-  getFacturaUrl: (idPedido: number): string => {
-    return `${API_URL}/facturas/pedido/${idPedido}`;
   },
 
   // ── Sincronización de Carrito y Favoritos ──

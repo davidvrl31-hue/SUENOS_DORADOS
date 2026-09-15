@@ -43,15 +43,15 @@ export default function RootLayout() {
     <AppProvider>
       <AuthProvider>
         <ProductsProvider>
-          <CartProvider>
-            <FavoritesProvider>
-              <OrdersProvider>
+          <OrdersProvider>
+            <CartProvider>
+              <FavoritesProvider>
                 <ToastProvider>
                   <Stack screenOptions={{ headerShown: false }} />
                 </ToastProvider>
-              </OrdersProvider>
-            </FavoritesProvider>
-          </CartProvider>
+              </FavoritesProvider>
+            </CartProvider>
+          </OrdersProvider>
         </ProductsProvider>
       </AuthProvider>
     </AppProvider>

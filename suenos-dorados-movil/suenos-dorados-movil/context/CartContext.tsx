@@ -1,8 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
-import { API } from "../services/api.service";
 import { useOrders } from "./OrdersContext";
+import { API } from "../services/api.service";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -57,7 +57,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const { user } = useAuth();
     const { stockMap } = useOrders();
 
-    // ── Sincronizar stockDisponible con el mapa en tiempo real del WebSocket ──
+    // Sincronizar stockDisponible con el mapa en tiempo real del WebSocket
     useEffect(() => {
         if (Object.keys(stockMap).length === 0) return;
         setItems((prev) =>

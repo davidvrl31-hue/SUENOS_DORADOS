@@ -10,6 +10,7 @@ import {
 import { COLORS } from "../../constants/theme";
 
 export interface Step2Data {
+    isAdult: boolean;
     acceptTerms: boolean;
     acceptPrivacy: boolean;
     acceptMarketing: boolean;
@@ -45,6 +46,17 @@ const RegisterStep2 = memo(function RegisterStep2({
             <Text style={s.sectionSubtitle}>
                 Para continuar, por favor acepta los términos obligatorios
             </Text>
+
+            {/* Mayoría de edad */}
+            <CheckboxItem
+                checked={data.isAdult}
+                onToggle={() => toggleField("isAdult")}
+                required
+            >
+                <Text style={s.checkText}>
+                    Confirmo que soy mayor de edad (18+ años)
+                </Text>
+            </CheckboxItem>
 
             {/* Términos y condiciones */}
             <CheckboxItem
@@ -110,8 +122,8 @@ const RegisterStep2 = memo(function RegisterStep2({
                         <ActivityIndicator color="#fff" size="small" />
                     ) : (
                         <>
-                            <Text style={s.submitTxt}>Continuar</Text>
-                            <Feather name="arrow-right" size={18} color="#fff" />
+                            <Text style={s.submitTxt}>Crear cuenta</Text>
+                            <Feather name="check" size={18} color="#fff" />
                         </>
                     )}
                 </TouchableOpacity>

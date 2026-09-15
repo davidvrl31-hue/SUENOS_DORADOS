@@ -29,7 +29,6 @@ export default function ProductDetailScreen() {
   const router  = useRouter();
   const { items, addItem, replaceItem } = useCart();
   const { toggleFavorite, isFavorite }  = useFavorites();
-  const { stockMap }                    = useOrders();   // ← stock en tiempo real WebSocket
   const { showToast } = useToast();
 
   const [producto,  setProducto]  = useState<Producto | null>(null);
@@ -97,26 +96,22 @@ export default function ProductDetailScreen() {
   const fav = isFavorite(favKey);
 
   // ── Ítem en carrito para ESTE producto ──
-  const itemEnCarrito     = items.find((i) => i.id.startsWith(`${producto?.idProducto}-`));
+  const itemEnCarrito = items.find((i) => i.id.startsWith(`${producto?.idProducto}-`));
   const cantidadEnCarrito = items.find((i) => i.idVariante === selVar?.idVariante)?.qty ?? 0;
-
-  // Stock en tiempo real: prioridad al stockMap del WebSocket, fallback a la variante cargada
-  const stockActual  = selVar
-    ? (stockMap[selVar.idVariante] ?? selVar.stock)
-    : 0;
-  const inStock      = stockActual > 0;
+  const stockActual = selVar?.stock ?? 0;
+  const inStock     = stockActual > 0;
   const puedeAgregar = inStock && cantidadEnCarrito < stockActual;
 
   // ── Helper: construye el ítem del carrito ──
   const buildCartItem = () => {
     if (!producto || !selVar) return null;
     return {
-      id:              `${producto.idProducto}-${selVar.idVariante}`,
-      name:            `${producto.nombreProducto} (${getNombreColor(selVar.idColor)} / ${getNombreMedida(selVar.idMedida)})`,
-      price:           Number(selVar.precio),
-      image:           producto.imagenUrl || PLACEHOLDER_IMAGE,
-      idVariante:      selVar.idVariante,
-      stockDisponible: stockActual,   // ← usa el stock en tiempo real
+      id:               `${producto.idProducto}-${selVar.idVariante}`,
+      name:             `${producto.nombreProducto} (${getNombreColor(selVar.idColor)} / ${getNombreMedida(selVar.idMedida)})`,
+      price:            Number(selVar.precio),
+      image:            producto.imagenUrl || PLACEHOLDER_IMAGE,
+      idVariante:       selVar.idVariante,
+      stockDisponible:  selVar.stock,
     };
   };
 
@@ -251,9 +246,7 @@ export default function ProductDetailScreen() {
             {inStock ? (
               <View style={s.stockGreen}>
                 <Feather name="check-circle" size={11} color="#16A34A" />
-                <Text style={s.stockGreenTxt}>
-                  En stock · {stockActual} u.{stockActual <= 3 ? " ¡Últimas!" : ""}
-                </Text>
+                <Text style={s.stockGreenTxt}>En stock · {stockActual} u.</Text>
               </View>
             ) : (
               <View style={s.stockRed}>
@@ -261,13 +254,6 @@ export default function ProductDetailScreen() {
               </View>
             )}
           </View>
-
-          {/* Desglose IVA */}
-          {selVar && (
-            <Text style={s.ivaTxt}>
-              Base: ${Math.round(Number(selVar.precio) / 1.19).toLocaleString("es-CO")} + IVA 19%: ${Math.round(Number(selVar.precio) - Number(selVar.precio) / 1.19).toLocaleString("es-CO")} · IVA incluido
-            </Text>
-          )}
 
           {/* Alerta cantidad en carrito */}
           {cantidadEnCarrito > 0 && inStock && (
@@ -457,7 +443,6 @@ const s = StyleSheet.create({
 
   cartHint: { fontSize: 12, color: COLORS.orange, fontWeight: "600", marginBottom: 4 },
   skuTxt: { fontSize: 11, color: COLORS.muted, marginBottom: 4 },
-  ivaTxt: { fontSize: 11, color: COLORS.mutedDark, marginBottom: 4, lineHeight: 16 },
 
   divider: { height: 1, backgroundColor: COLORS.border, marginVertical: 16 },
 

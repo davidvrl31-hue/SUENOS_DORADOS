@@ -1,13 +1,9 @@
 /**
  * Servicio centralizado de consumo de la API de NestJS
- * Puerto: 3000 (configurar en .env)
  */
-
 const API_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
-// ────────────────────────────────────────────────────────────────────────────────
-// Interfaces (deben coincidir con la API de NestJS)
-// ────────────────────────────────────────────────────────────────────────────────
+// ─── Interfaces ───────────────────────────────────────────────────────────────
 
 export interface Categoria {
   idCategoria: number;
@@ -59,12 +55,28 @@ export interface LoginPayload {
   contrasena: string;
 }
 
+export interface DireccionRegistroPayload {
+  pais?: string;
+  descripcionDepartamento: string;
+  descripcionMunicipio: string;
+  descripcionDireccion: string;
+  complemento?: string;
+  descripcionBarrio?: string;
+  codigoPostal?: string;
+  indicaciones?: string;
+  etiqueta?: string;
+  telefonoContacto?: string;
+  esPrincipal?: boolean;
+}
+
 export interface RegistroPayload {
   nombreUsuario: string;
   apellidoUsuario: string;
   correoElectronico: string;
   contrasena: string;
   telefono?: string;
+  /** Dirección inicial opcional — se guarda como dirección principal */
+  direccion?: DireccionRegistroPayload;
 }
 
 export interface AuthResponse {
@@ -94,35 +106,33 @@ export interface CreateDireccionPayload {
   descripcionBarrio?: string;
   descripcionMunicipio: string;
   descripcionDepartamento: string;
+  complemento?: string;
+  codigoPostal?: string;
+  indicaciones?: string;
+  etiqueta?: string;
+  telefonoContacto?: string;
   esPrincipal?: boolean;
 }
 
 export interface CreatePedidoPayload {
   idDireccion: number;
-  items: {
-    idVariante: number;
-    cantidad: number;
-    precioUnitario: number;
-  }[];
+  items: { idVariante: number; cantidad: number; precioUnitario: number }[];
   descuento?: number;
   costoEnvio?: number;
+  codigoCupon?: string;
 }
 
-// ────────────────────────────────────────────────────────────────────────────────
-// Servicio API
-// ────────────────────────────────────────────────────────────────────────────────
+// ─── Servicio ─────────────────────────────────────────────────────────────────
 
 export const SueñosDoradosAPI = {
+
   // ── Categorías ────────────────────────────────────────────────────────────
   getCategorias: async (): Promise<Categoria[]> => {
     try {
       const res = await fetch(`${API_URL}/categorias`);
       if (!res.ok) throw new Error(`Error ${res.status}`);
-      return await res.json();
-    } catch (e) {
-      console.error("Error Categorías:", e);
-      return [];
-    }
+      return res.json();
+    } catch (e) { console.error("Error Categorías:", e); return []; }
   },
 
   // ── Productos ─────────────────────────────────────────────────────────────
@@ -133,22 +143,16 @@ export const SueñosDoradosAPI = {
         : `${API_URL}/productos`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Error ${res.status}`);
-      return await res.json();
-    } catch (e) {
-      console.error("Error Productos:", e);
-      return [];
-    }
+      return res.json();
+    } catch (e) { console.error("Error Productos:", e); return []; }
   },
 
   getProducto: async (id: number): Promise<Producto | null> => {
     try {
       const res = await fetch(`${API_URL}/productos/${id}`);
       if (!res.ok) throw new Error(`Error ${res.status}`);
-      return await res.json();
-    } catch (e) {
-      console.error("Error Producto:", e);
-      return null;
-    }
+      return res.json();
+    } catch (e) { console.error("Error Producto:", e); return null; }
   },
 
   // ── Variantes ─────────────────────────────────────────────────────────────
@@ -159,35 +163,25 @@ export const SueñosDoradosAPI = {
         : `${API_URL}/variantes-producto`;
       const res = await fetch(url);
       if (!res.ok) throw new Error(`Error ${res.status}`);
-      return await res.json();
-    } catch (e) {
-      console.error("Error Variantes:", e);
-      return [];
-    }
+      return res.json();
+    } catch (e) { console.error("Error Variantes:", e); return []; }
   },
 
-  // ── Medidas ───────────────────────────────────────────────────────────────
+  // ── Medidas / Colores ─────────────────────────────────────────────────────
   getMedidas: async (): Promise<Medida[]> => {
     try {
       const res = await fetch(`${API_URL}/medidas`);
       if (!res.ok) throw new Error(`Error ${res.status}`);
-      return await res.json();
-    } catch (e) {
-      console.error("Error Medidas:", e);
-      return [];
-    }
+      return res.json();
+    } catch (e) { console.error("Error Medidas:", e); return []; }
   },
 
-  // ── Colores ───────────────────────────────────────────────────────────────
   getColores: async (): Promise<Color[]> => {
     try {
       const res = await fetch(`${API_URL}/colores`);
       if (!res.ok) throw new Error(`Error ${res.status}`);
-      return await res.json();
-    } catch (e) {
-      console.error("Error Colores:", e);
-      return [];
-    }
+      return res.json();
+    } catch (e) { console.error("Error Colores:", e); return []; }
   },
 
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -260,6 +254,23 @@ export const SueñosDoradosAPI = {
     return res.json();
   },
 
+  actualizarDireccion: async (
+    token: string,
+    id: number,
+    payload: Partial<CreateDireccionPayload>
+  ): Promise<DireccionAPI> => {
+    const res = await fetch(`${API_URL}/direcciones/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message ?? "Error al actualizar dirección");
+    }
+    return res.json();
+  },
+
   eliminarDireccion: async (token: string, id: number): Promise<void> => {
     const res = await fetch(`${API_URL}/direcciones/${id}`, {
       method: "DELETE",
@@ -290,21 +301,24 @@ export const SueñosDoradosAPI = {
     return res.json();
   },
 
-  // ── Bold — Pasarela de pagos real (API Link de pagos) ────────────────────
+  // ── Facturas ──────────────────────────────────────────────────────────────
+  /** Retorna la URL del PDF de factura (se usa con expo-file-system) */
+  getFacturaUrl: (idPedido: number): string =>
+    `${API_URL}/facturas/pedido/${idPedido}`,
 
-  /**
-   * Crea un link de pago Bold con monto fijo (CLOSE).
-   * Bold muestra PSE, Nequi, Tarjeta y Bancolombia en una sola pantalla.
-   * Devuelve checkoutUrl para abrir en WebBrowser.
-   */
+  // ── Descuentos ────────────────────────────────────────────────────────────
+  validarCupon: async (codigo: string, subtotal: number) => {
+    const res = await fetch(
+      `${API_URL}/descuentos/validar?codigo=${encodeURIComponent(codigo)}&subtotal=${subtotal}`
+    );
+    if (!res.ok) throw new Error("Error al validar cupón");
+    return res.json();
+  },
+
+  // ── Bold — Pasarela de pagos ──────────────────────────────────────────────
   crearLinkDePago: async (
     token: string,
-    payload: {
-      idPedido: number;
-      totalCOP: number;
-      descripcion: string;
-      correoComprador: string;
-    }
+    payload: { idPedido: number; totalCOP: number; descripcion: string; correoComprador: string }
   ): Promise<{ checkoutUrl: string; linkId: string; referenceId: string }> => {
     const res = await fetch(`${API_URL}/pagos/crear`, {
       method: "POST",
@@ -313,24 +327,14 @@ export const SueñosDoradosAPI = {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      const msg = Array.isArray(err.message)
-        ? err.message.join(", ")
-        : (err.message ?? "Error al crear link de pago");
+      const msg = Array.isArray(err.message) ? err.message.join(", ") : (err.message ?? "Error al crear link de pago");
       throw new Error(msg);
     }
     const data = await res.json();
     if (!data.checkoutUrl) throw new Error("Bold no devolvió la URL del checkout");
-    return {
-      checkoutUrl: data.checkoutUrl,
-      linkId:      data.linkId,
-      referenceId: data.referenceId,
-    };
+    return { checkoutUrl: data.checkoutUrl, linkId: data.linkId, referenceId: data.referenceId };
   },
 
-  /**
-   * Consulta el estado de un link Bold por su linkId.
-   * Estados: ACTIVE | PROCESSING | PAID | REJECTED | CANCELLED | EXPIRED
-   */
   consultarEstadoPago: async (token: string, linkId: string) => {
     const res = await fetch(`${API_URL}/pagos/estado/${linkId}`, {
       headers: { Authorization: `Bearer ${token}` },
@@ -339,12 +343,12 @@ export const SueñosDoradosAPI = {
     return res.json();
   },
 
-  // ── Sincronización de Carrito y Favoritos ──
+  // ── Carrito y Favoritos (sincronización con BD) ───────────────────────────
   getCarrito: async (token: string) => {
     const res = await fetch(`${API_URL}/usuarios/carrito`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) throw new Error("Error al obtener carrito de la BD");
+    if (!res.ok) throw new Error("Error al obtener carrito");
     return res.json();
   },
 
@@ -354,7 +358,7 @@ export const SueñosDoradosAPI = {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ items }),
     });
-    if (!res.ok) throw new Error("Error al guardar carrito en la BD");
+    if (!res.ok) throw new Error("Error al guardar carrito");
     return res.json();
   },
 
@@ -369,7 +373,7 @@ export const SueñosDoradosAPI = {
     const res = await fetch(`${API_URL}/usuarios/favoritos`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) throw new Error("Error al obtener favoritos de la BD");
+    if (!res.ok) throw new Error("Error al obtener favoritos");
     return res.json();
   },
 
@@ -379,7 +383,7 @@ export const SueñosDoradosAPI = {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ ids }),
     });
-    if (!res.ok) throw new Error("Error al guardar favoritos en la BD");
+    if (!res.ok) throw new Error("Error al guardar favoritos");
     return res.json();
   },
 };

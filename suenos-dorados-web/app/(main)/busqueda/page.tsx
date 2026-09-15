@@ -8,7 +8,7 @@ import { Product } from "@/app/context/AppContext";
 
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80";
 
-function mapToProduct(p: Producto, nombreCategoria: string, price: number): Product {
+function mapToProduct(p: Producto, nombreCategoria: string, price: number, stockMin: number): Product {
   return {
     id: p.idProducto,
     name: p.nombreProducto,
@@ -17,6 +17,7 @@ function mapToProduct(p: Producto, nombreCategoria: string, price: number): Prod
     category: nombreCategoria,
     slug: p.slug,
     descripcion: p.descripcionProducto ?? undefined,
+    stock: stockMin,
   };
 }
 
@@ -47,9 +48,10 @@ function BusquedaContent() {
           .map((p) => {
             const cat = cats.find((c) => c.idCategoria === p.idCategoria);
             const varsProd = vars.filter((v) => v.idProducto === p.idProducto && v.estado);
-            const precios = varsProd.map((v) => Number(v.precio));
+            const precios  = varsProd.map((v) => Number(v.precio));
             const precioMin = precios.length > 0 ? Math.min(...precios) : 0;
-            return mapToProduct(p, cat?.nombreCategoria ?? "Sin categoría", precioMin);
+            const stockTotal = varsProd.reduce((sum, v) => sum + v.stock, 0);
+            return mapToProduct(p, cat?.nombreCategoria ?? "Sin categoría", precioMin, stockTotal);
           });
         setProductos(mapeados);
       } catch {

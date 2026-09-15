@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Heart, ShoppingCart } from "lucide-react";
+import { Heart, ShoppingCart, PackageX } from "lucide-react";
 import { useApp, Product } from "@/app/context/AppContext";
 
 interface ProductCardProps {
@@ -11,21 +11,19 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ product, compact = false }: ProductCardProps) {
-  const { toggleFavorite, favorites } = useApp();
+  const { toggleFavorite, favorites, stockMap } = useApp();
   const router = useRouter();
   const isFav = favorites.some((f) => f.id === product.id);
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : null;
 
-  /**
-   * "Comprar" desde la tarjeta redirige al detalle del producto.
-   * Ahí el usuario elige variante (medida/color), ve el stock real
-   * y usa "Agregar al carrito" o "Comprar ahora".
-   * Agregar directamente desde la card sin variante/stock causa los bugs
-   * que queremos evitar.
-   */
+  // Stock en tiempo real desde WebSocket — fallback al stock del catálogo
+  const stockActual = stockMap[product.idVariante ?? 0] ?? product.stock ?? 1;
+  const agotado = stockActual === 0;
+
   const handleComprar = () => {
+    if (agotado) return;
     router.push(`/producto/${product.id}`);
   };
 
@@ -38,7 +36,7 @@ export default function ProductCard({ product, compact = false }: ProductCardPro
               src={product.image}
               alt={product.name}
               fill
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              className={`object-cover group-hover:scale-105 transition-transform duration-300 ${agotado ? "opacity-50 grayscale" : ""}`}
               sizes="(max-width: 768px) 50vw, 25vw"
             />
           </div>
@@ -46,12 +44,16 @@ export default function ProductCard({ product, compact = false }: ProductCardPro
 
         {/* Badges */}
         <div className="absolute top-2 left-2 flex flex-col gap-1">
-          {product.badge && (
+          {agotado ? (
+            <span className="bg-gray-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+              <PackageX size={10} /> Agotado
+            </span>
+          ) : product.badge ? (
             <span className="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
               {product.badge}
             </span>
-          )}
-          {discount && (
+          ) : null}
+          {discount && !agotado && (
             <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
               -{discount}%
             </span>
@@ -79,7 +81,7 @@ export default function ProductCard({ product, compact = false }: ProductCardPro
           </h3>
         </Link>
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-primary font-bold text-sm">
+          <span className={`font-bold text-sm ${agotado ? "text-gray-400" : "text-primary"}`}>
             ${product.price.toLocaleString("es-CO")}
           </span>
           {product.originalPrice && (
@@ -88,14 +90,24 @@ export default function ProductCard({ product, compact = false }: ProductCardPro
             </span>
           )}
         </div>
-        {/* Redirige al detalle para elegir variante y respetar stock */}
-        <button
-          onClick={handleComprar}
-          className="w-full bg-primary hover:bg-primary-dark text-white text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
-        >
-          <ShoppingCart size={14} />
-          Ver y comprar
-        </button>
+
+        {agotado ? (
+          <button
+            disabled
+            className="w-full bg-gray-200 text-gray-400 text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1.5 cursor-not-allowed"
+          >
+            <PackageX size={14} />
+            Sin stock
+          </button>
+        ) : (
+          <button
+            onClick={handleComprar}
+            className="w-full bg-primary hover:bg-primary-dark text-white text-xs font-semibold py-2 rounded-lg flex items-center justify-center gap-1.5 transition-colors"
+          >
+            <ShoppingCart size={14} />
+            Ver y comprar
+          </button>
+        )}
       </div>
     </div>
   );

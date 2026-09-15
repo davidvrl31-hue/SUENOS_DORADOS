@@ -10,6 +10,7 @@ const WS_URL  = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000").rep
 
 export interface Product {
   id: number;
+  idVariante?: number;     // variante principal para consultar stockMap
   name: string;
   price: number;
   originalPrice?: number;
@@ -18,6 +19,7 @@ export interface Product {
   badge?: string;
   slug?: string;
   descripcion?: string;
+  stock?: number;          // stock total de variantes activas
 }
 
 export interface CartItem extends Product {

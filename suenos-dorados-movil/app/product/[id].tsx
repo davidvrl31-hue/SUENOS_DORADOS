@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { useCart } from "../../context/CartContext";
 import { useFavorites } from "../../context/FavoritesContext";
+import { useOrders } from "../../context/OrdersContext";
 import { useToast } from "../../components/ui/Toast";
 import { API, Color, Medida, Producto, VarianteProducto } from "../../services/api.service";
 import { COLORS, RADIUS } from "../../constants/theme";
@@ -28,6 +29,7 @@ export default function ProductDetailScreen() {
   const router  = useRouter();
   const { items, addItem, replaceItem } = useCart();
   const { toggleFavorite, isFavorite }  = useFavorites();
+  const { stockMap }                    = useOrders();   // ← stock en tiempo real WebSocket
   const { showToast } = useToast();
 
   const [producto,  setProducto]  = useState<Producto | null>(null);
@@ -95,22 +97,26 @@ export default function ProductDetailScreen() {
   const fav = isFavorite(favKey);
 
   // ── Ítem en carrito para ESTE producto ──
-  const itemEnCarrito = items.find((i) => i.id.startsWith(`${producto?.idProducto}-`));
+  const itemEnCarrito     = items.find((i) => i.id.startsWith(`${producto?.idProducto}-`));
   const cantidadEnCarrito = items.find((i) => i.idVariante === selVar?.idVariante)?.qty ?? 0;
-  const stockActual = selVar?.stock ?? 0;
-  const inStock     = stockActual > 0;
+
+  // Stock en tiempo real: prioridad al stockMap del WebSocket, fallback a la variante cargada
+  const stockActual  = selVar
+    ? (stockMap[selVar.idVariante] ?? selVar.stock)
+    : 0;
+  const inStock      = stockActual > 0;
   const puedeAgregar = inStock && cantidadEnCarrito < stockActual;
 
   // ── Helper: construye el ítem del carrito ──
   const buildCartItem = () => {
     if (!producto || !selVar) return null;
     return {
-      id:               `${producto.idProducto}-${selVar.idVariante}`,
-      name:             `${producto.nombreProducto} (${getNombreColor(selVar.idColor)} / ${getNombreMedida(selVar.idMedida)})`,
-      price:            Number(selVar.precio),
-      image:            producto.imagenUrl || PLACEHOLDER_IMAGE,
-      idVariante:       selVar.idVariante,
-      stockDisponible:  selVar.stock,
+      id:              `${producto.idProducto}-${selVar.idVariante}`,
+      name:            `${producto.nombreProducto} (${getNombreColor(selVar.idColor)} / ${getNombreMedida(selVar.idMedida)})`,
+      price:           Number(selVar.precio),
+      image:           producto.imagenUrl || PLACEHOLDER_IMAGE,
+      idVariante:      selVar.idVariante,
+      stockDisponible: stockActual,   // ← usa el stock en tiempo real
     };
   };
 
@@ -245,7 +251,9 @@ export default function ProductDetailScreen() {
             {inStock ? (
               <View style={s.stockGreen}>
                 <Feather name="check-circle" size={11} color="#16A34A" />
-                <Text style={s.stockGreenTxt}>En stock · {stockActual} u.</Text>
+                <Text style={s.stockGreenTxt}>
+                  En stock · {stockActual} u.{stockActual <= 3 ? " ¡Últimas!" : ""}
+                </Text>
               </View>
             ) : (
               <View style={s.stockRed}>

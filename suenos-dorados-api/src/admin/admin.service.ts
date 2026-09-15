@@ -6,6 +6,7 @@ import { Usuario } from '../usuarios/entities/usuario.entity';
 import { VariantesProducto } from '../variantes-producto/entities/variantes-producto.entity';
 import { Producto } from '../productos/entities/producto.entity';
 import { Categoria } from '../categorias/entities/categoria.entity';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class AdminService {
@@ -21,6 +22,7 @@ export class AdminService {
     @InjectRepository(Categoria)
     private readonly categoriasRepo: Repository<Categoria>,
     private readonly dataSource: DataSource,
+    private readonly eventsGateway: EventsGateway,
   ) {}
 
   async dashboardStats() {
@@ -125,6 +127,21 @@ export class AdminService {
     const pedido = await this.pedidosRepo.findOne({ where: { idPedido: id } });
     if (!pedido) throw new NotFoundException(`Pedido ${id} no encontrado`);
     await this.pedidosRepo.update(id, { idEstadoPedido });
+
+    // Obtener descripción del estado para el evento WS
+    const estadoRows = await this.dataSource.query(
+      `SELECT descripcion_estado FROM estado_pedido WHERE id_estado_pedido = $1`,
+      [idEstadoPedido],
+    );
+    const descripcionEstado = estadoRows[0]?.descripcion_estado ?? 'Actualizado';
+
+    // Emitir evento en tiempo real a Web y Móvil
+    this.eventsGateway.emitPedidoEstado({
+      idPedido: id,
+      idEstadoPedido,
+      descripcionEstado,
+    });
+
     return this.obtenerPedido(id);
   }
 

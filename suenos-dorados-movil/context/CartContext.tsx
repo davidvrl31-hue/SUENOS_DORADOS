@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useAuth } from "./AuthContext";
 import { API } from "../services/api.service";
+import { useOrders } from "./OrdersContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,20 @@ function extractIdVariante(item: CartItem): number | null {
 export function CartProvider({ children }: { children: React.ReactNode }) {
     const [items, setItems] = useState<CartItem[]>([]);
     const { user } = useAuth();
+    const { stockMap } = useOrders();
+
+    // ── Sincronizar stockDisponible con el mapa en tiempo real del WebSocket ──
+    useEffect(() => {
+        if (Object.keys(stockMap).length === 0) return;
+        setItems((prev) =>
+            prev.map((item) => {
+                if (!item.idVariante) return item;
+                const nuevoStock = stockMap[item.idVariante];
+                if (nuevoStock === undefined) return item;
+                return { ...item, stockDisponible: nuevoStock };
+            })
+        );
+    }, [stockMap]);
 
     const buildPayload = useCallback((cartItems: CartItem[]) => {
         return cartItems

@@ -1,4 +1,7 @@
-import { IsArray, IsNotEmpty, IsNumber, IsOptional, IsString, ValidateNested, Min } from 'class-validator';
+import {
+  IsArray, IsNumber, IsOptional, IsString,
+  ValidateNested, Min, MaxLength,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class DetalleItemDto {
@@ -23,6 +26,7 @@ export class CreatePedidoDto {
   @Type(() => DetalleItemDto)
   items!: DetalleItemDto[];
 
+  /** Monto fijo de descuento ya calculado (se ignora si viene codigoCupon) */
   @IsOptional()
   @IsNumber()
   @Min(0)
@@ -32,4 +36,10 @@ export class CreatePedidoDto {
   @IsNumber()
   @Min(0)
   costoEnvio?: number;
+
+  /** Código de cupón — si viene, se valida y se calcula el descuento automáticamente */
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  codigoCupon?: string;
 }

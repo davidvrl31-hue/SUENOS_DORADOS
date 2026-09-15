@@ -13,7 +13,7 @@ const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1631049307264-da0ec
 
 export default function ProductoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { addToCart, replaceCartItem, toggleFavorite, favorites, cart } = useApp();
+  const { addToCart, replaceCartItem, toggleFavorite, favorites, cart, stockMap } = useApp();
 
   const searchParams = useSearchParams();
   const queryVarianteId = searchParams.get("variante");
@@ -105,8 +105,10 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
   // Variante que ya está en el carrito para este producto (si existe)
   const itemEnCarrito = cart.find((i) => i.id === producto.idProducto);
 
-  // Stock real de la variante seleccionada
-  const stockActual = varianteSeleccionada?.stock ?? 0;
+  // Stock real: prioridad al stockMap del WebSocket, fallback a la variante cargada
+  const stockActual = varianteSeleccionada
+    ? (stockMap[varianteSeleccionada.idVariante] ?? varianteSeleccionada.stock)
+    : 0;
   const cantidadEnCarrito = cart.find(
     (i) => i.idVariante === varianteSeleccionada?.idVariante
   )?.quantity ?? 0;
@@ -201,9 +203,16 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
           {/* Precio */}
           <div className="flex items-end gap-3">
             {varianteSeleccionada ? (
-              <span className="text-3xl font-bold text-primary">
-                ${Number(varianteSeleccionada.precio).toLocaleString("es-CO")}
-              </span>
+              <div>
+                <span className="text-3xl font-bold text-primary">
+                  ${Number(varianteSeleccionada.precio).toLocaleString("es-CO")}
+                </span>
+                <p className="text-xs text-gray-400 mt-1">
+                  Base: ${Math.round(Number(varianteSeleccionada.precio) / 1.19).toLocaleString("es-CO")} +
+                  IVA (19%): ${Math.round(Number(varianteSeleccionada.precio) - Number(varianteSeleccionada.precio) / 1.19).toLocaleString("es-CO")}
+                  {" · "}IVA incluido
+                </p>
+              </div>
             ) : (
               <span className="text-lg text-gray-400 font-medium">Selecciona una opción</span>
             )}

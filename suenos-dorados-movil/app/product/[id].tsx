@@ -254,6 +254,13 @@ export default function ProductDetailScreen() {
             )}
           </View>
 
+          {/* Desglose IVA */}
+          {selVar && (
+            <Text style={s.ivaTxt}>
+              Base: ${Math.round(Number(selVar.precio) / 1.19).toLocaleString("es-CO")} + IVA 19%: ${Math.round(Number(selVar.precio) - Number(selVar.precio) / 1.19).toLocaleString("es-CO")} · IVA incluido
+            </Text>
+          )}
+
           {/* Alerta cantidad en carrito */}
           {cantidadEnCarrito > 0 && inStock && (
             <Text style={s.cartHint}>
@@ -442,6 +449,7 @@ const s = StyleSheet.create({
 
   cartHint: { fontSize: 12, color: COLORS.orange, fontWeight: "600", marginBottom: 4 },
   skuTxt: { fontSize: 11, color: COLORS.muted, marginBottom: 4 },
+  ivaTxt: { fontSize: 11, color: COLORS.mutedDark, marginBottom: 4, lineHeight: 16 },
 
   divider: { height: 1, backgroundColor: COLORS.border, marginVertical: 16 },
 

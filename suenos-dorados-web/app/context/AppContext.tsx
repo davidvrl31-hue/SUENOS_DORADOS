@@ -1,8 +1,10 @@
 "use client";
-import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { io, Socket } from "socket.io-client";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const WS_URL  = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000").replace(/\/api\/?$/, "");
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -73,17 +75,7 @@ interface AppContextType {
   setUser: (u: User | null) => void;
   logout: () => void;
   cart: CartItem[];
-  /**
-   * Agrega un producto al carrito respetando el stock.
-   * Si ya existe la misma variante, incrementa cantidad (hasta el stock disponible).
-   * @param redirectToCart Si es true, navega a /carrito después de agregar
-   */
   addToCart: (p: Product, idVariante?: number, sku?: string, redirectToCart?: boolean) => Promise<void>;
-  /**
-   * Reemplaza la variante de un ítem existente.
-   * Elimina el ítem anterior (misma variante) y agrega el nuevo.
-   * Útil cuando el usuario cambia medida/color en el detalle del producto.
-   */
   replaceCartItem: (oldVarianteId: number | undefined, p: Product, newVarianteId?: number, sku?: string) => Promise<void>;
   removeFromCart: (id: number, idVariante?: number) => void;
   updateQty: (id: number, qty: number, idVariante?: number) => void;
@@ -95,9 +87,10 @@ interface AppContextType {
   addresses: Address[];
   addAddress: (a: Omit<Address, "id">) => void;
   removeAddress: (id: number) => void;
-  /** Notificaciones reales — vacías hasta que el backend las implemente */
   notifications: Notification[];
   isLoadingOrders: boolean;
+  /** Mapa idVariante → stock en tiempo real (actualizado por WebSocket) */
+  stockMap: Record<number, number>;
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -115,8 +108,63 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
 
   // Notificaciones: array vacío — sin mocks.
-  // Se llenará cuando el backend implemente el módulo de notificaciones reales.
   const [notifications] = useState<Notification[]>([]);
+
+  // ── Mapa de stock en tiempo real: idVariante → stockActual ────────────────
+  // Se actualiza por WebSocket cuando el escritorio cambia el inventario
+  const [stockMap, setStockMap] = useState<Record<number, number>>({});
+
+  // ── WebSocket ─────────────────────────────────────────────────────────────
+  const socketRef = useRef<Socket | null>(null);
+
+  useEffect(() => {
+    const socket = io(WS_URL, {
+      transports: ["websocket", "polling"],
+      reconnectionDelay: 2000,
+      reconnectionAttempts: 10,
+    });
+
+    socket.on("connect", () => console.log("[WS Web] Conectado:", socket.id));
+
+    // Actualización de estado de pedido en tiempo real
+    socket.on("pedido:estado", (payload: {
+      idPedido: number;
+      idEstadoPedido: number;
+      descripcionEstado: string;
+    }) => {
+      setOrders((prev) =>
+        prev.map((o) => {
+          const id = Number(o.id.replace("ORD-", ""));
+          if (id !== payload.idPedido) return o;
+          return { ...o, status: mapEstado(payload.idEstadoPedido) };
+        })
+      );
+    });
+
+    // Actualización de stock en tiempo real
+    socket.on("variante:stock", (payload: {
+      idVariante: number;
+      stockNuevo: number;
+    }) => {
+      setStockMap((prev) => ({ ...prev, [payload.idVariante]: payload.stockNuevo }));
+      // También actualizar stockDisponible en el carrito si ese ítem está presente
+      setCart((prev) =>
+        prev.map((item) =>
+          item.idVariante === payload.idVariante
+            ? { ...item, stockDisponible: payload.stockNuevo }
+            : item
+        )
+      );
+    });
+
+    socket.on("disconnect", () => console.log("[WS Web] Desconectado"));
+    socketRef.current = socket;
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, []); // eslint-disable-line
 
   // ── Helpers de persistencia en BD ─────────────────────────────────────────
 
@@ -500,6 +548,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         orders, loadOrders, isLoadingOrders,
         addresses, addAddress, removeAddress,
         notifications,
+        stockMap,
       }}
     >
       {children}
@@ -516,12 +565,13 @@ export function useApp() {
 // ── Helper: mapear id de estado a string legible ──────────────────────────────
 function mapEstado(id: number): Order["status"] {
   switch (id) {
-    case 1: return "pendiente";
-    case 2: return "pendiente";   // Pagado → sigue en proceso
-    case 3: return "cancelado";   // Rechazado
-    case 4: return "en_proceso";  // Cancelado/Anulado
-    case 5: return "en camino";   // Despachado
-    case 6: return "entregado";
+    case 1: return "pendiente";   // Pendiente
+    case 2: return "pendiente";   // Pagado → sigue en proceso para el cliente
+    case 3: return "en_proceso";  // En preparación
+    case 4: return "en_proceso";  // Despachado (en camino)
+    case 5: return "en camino";   // En camino
+    case 6: return "entregado";   // Entregado
+    case 7: return "cancelado";   // Cancelado
     default: return "pendiente";
   }
 }

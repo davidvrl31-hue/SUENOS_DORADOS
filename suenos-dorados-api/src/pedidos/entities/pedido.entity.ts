@@ -36,6 +36,12 @@ export class Pedido {
   @Column({ name: 'total', type: 'numeric', precision: 12, scale: 2 })
   total!: number;
 
+  @Column({ name: 'base_imponible', type: 'numeric', precision: 12, scale: 2, default: 0 })
+  baseImponible!: number;
+
+  @Column({ name: 'iva', type: 'numeric', precision: 12, scale: 2, default: 0 })
+  iva!: number;
+
   @OneToMany(() => DetallePedido, (detalle) => detalle.pedido, { cascade: true, eager: true })
   detalles!: DetallePedido[];
 }

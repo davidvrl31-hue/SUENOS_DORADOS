@@ -1,0 +1,14 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { DescuentosService } from './descuentos.service';
+import { DescuentosController } from './descuentos.controller';
+import { Descuento } from './entities/descuento.entity';
+import { AuthModule } from '../auth/auth.module';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([Descuento]), AuthModule],
+  controllers: [DescuentosController],
+  providers: [DescuentosService],
+  exports: [DescuentosService],
+})
+export class DescuentosModule {}

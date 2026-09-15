@@ -193,11 +193,19 @@ def actualizar_variante(id_: int, data: dict) -> dict:
     return _handle(requests.patch(_url(f"variantes-producto/{id_}"), json=data, headers=_headers()))
 
 
-def ajustar_stock(id_variante: int, delta: int) -> dict:
-    """delta positivo = entrada, negativo = salida."""
+def ajustar_stock(id_variante: int, delta: int, referencia: str = "AJUSTE-ADMIN", observacion: str = "") -> dict:
+    """
+    delta positivo = entrada, negativo = salida.
+    Registra automáticamente el movimiento en movimientos_inventario.
+    """
+    payload = {"delta": delta}
+    if referencia:
+        payload["referencia"] = referencia
+    if observacion:
+        payload["observacion"] = observacion
     return _handle(requests.post(
         _url(f"variantes-producto/{id_variante}/stock"),
-        json={"delta": delta},
+        json=payload,
         headers=_headers(),
     ))
 

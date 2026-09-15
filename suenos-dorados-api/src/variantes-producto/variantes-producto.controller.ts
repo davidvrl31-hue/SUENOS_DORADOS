@@ -3,13 +3,21 @@ import { VariantesProductoService } from './variantes-producto.service';
 import { CreateVariantesProductoDto } from './dto/create-variantes-producto.dto';
 import { UpdateVariantesProductoDto } from './dto/update-variantes-producto.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { IsInt } from 'class-validator';
+import { IsInt, IsOptional, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class AjustarStockDto {
   @IsInt()
   @Type(() => Number)
   delta!: number;
+
+  @IsOptional()
+  @IsString()
+  referencia?: string;
+
+  @IsOptional()
+  @IsString()
+  observacion?: string;
 }
 
 @Controller('variantes-producto')
@@ -51,7 +59,7 @@ export class VariantesProductoController {
   @Post(':id/stock')
   @UseGuards(JwtAuthGuard)
   ajustarStock(@Param('id', ParseIntPipe) id: number, @Body() body: AjustarStockDto) {
-    return this.variantesProductoService.ajustarStock(id, body.delta);
+    return this.variantesProductoService.ajustarStock(id, body.delta, body.referencia, body.observacion);
   }
 
   @Delete(':id')

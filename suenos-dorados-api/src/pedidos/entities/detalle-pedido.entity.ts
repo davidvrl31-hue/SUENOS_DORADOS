@@ -19,6 +19,15 @@ export class DetallePedido {
   @Column({ name: 'precio_unitario', type: 'numeric', precision: 12, scale: 2 })
   precioUnitario!: number;
 
+  @Column({ name: 'iva_porcentaje', type: 'numeric', precision: 5, scale: 2, default: 19 })
+  ivaPorcentaje!: number;
+
+  @Column({ name: 'base_unitario', type: 'numeric', precision: 12, scale: 2, default: 0 })
+  baseUnitario!: number;
+
+  @Column({ name: 'iva_unitario', type: 'numeric', precision: 12, scale: 2, default: 0 })
+  ivaUnitario!: number;
+
   @ManyToOne(() => Pedido, (pedido) => pedido.detalles)
   @JoinColumn({ name: 'id_pedido' })
   pedido!: Pedido;

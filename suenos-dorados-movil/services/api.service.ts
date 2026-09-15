@@ -377,6 +377,14 @@ export const SueñosDoradosAPI = {
     return res.json();
   },
 
+  // ── Facturas ──────────────────────────────────────────────────────────────
+  /**
+   * Obtiene el PDF de la factura como Blob para compartir/abrir en móvil.
+   */
+  getFacturaUrl: (idPedido: number): string => {
+    return `${API_URL}/facturas/pedido/${idPedido}`;
+  },
+
   // ── Sincronización de Carrito y Favoritos ──
   getCarrito: async (token: string) => {
     const res = await fetch(`${API_URL}/usuarios/carrito`, {

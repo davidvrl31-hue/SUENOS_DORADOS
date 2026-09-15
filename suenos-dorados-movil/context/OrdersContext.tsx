@@ -1,13 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { io } from "socket.io-client";
 import { API, DireccionAPI } from "../services/api.service";
 import { useAuth } from "./AuthContext";
 import { CartItem } from "./CartContext";
+
+const WS_URL = (process.env.EXPO_PUBLIC_API_URL ?? "http://localhost:3000").replace(/\/api\/?$/, "");
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface Order {
   id: string;
+  idPedido: number;          // ID numérico real del pedido — para factura
   date: string;
   items: CartItem[];
   total: number;
@@ -39,6 +43,8 @@ interface OrdersContextType {
   payments: PaymentMethod[];
   isLoadingOrders: boolean;
   isLoadingAddresses: boolean;
+  /** Stock en tiempo real — actualizado por WebSocket cuando el escritorio modifica inventario */
+  stockMap: Record<number, number>;
   loadOrders: () => Promise<void>;
   loadAddresses: () => Promise<void>;
   placeOrder: (
@@ -70,6 +76,53 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
   const [payments, setPayments] = useState<PaymentMethod[]>([]);
   const [isLoadingOrders, setIsLoadingOrders] = useState(false);
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
+
+  // ── Mapa de stock en tiempo real: idVariante → stockActual ────────────────
+  const [stockMap, setStockMap] = useState<Record<number, number>>({});
+  const socketRef = useRef<ReturnType<typeof io> | null>(null);
+
+  // ── WebSocket ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const socket = io(WS_URL, {
+      transports: ["websocket", "polling"],
+      reconnectionDelay: 2000,
+      reconnectionAttempts: 10,
+    });
+
+    socket.on("connect", () =>
+      console.log("[WS Móvil] Conectado:", socket.id)
+    );
+
+    // Estado de pedido actualizado por el escritorio
+    socket.on("pedido:estado", (payload: {
+      idPedido: number;
+      idEstadoPedido: number;
+      descripcionEstado: string;
+    }) => {
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.idPedido === payload.idPedido
+            ? { ...o, status: mapEstadoMovil(payload.idEstadoPedido) }
+            : o
+        )
+      );
+    });
+
+    // Stock actualizado por el escritorio o por una compra
+    socket.on("variante:stock", (payload: {
+      idVariante: number;
+      stockNuevo: number;
+    }) => {
+      setStockMap((prev) => ({ ...prev, [payload.idVariante]: payload.stockNuevo }));
+    });
+
+    socket.on("disconnect", () =>
+      console.log("[WS Móvil] Desconectado")
+    );
+
+    socketRef.current = socket;
+    return () => { socket.disconnect(); socketRef.current = null; };
+  }, []); // eslint-disable-line
 
   // Adaptar DireccionAPI al tipo Address del contexto
   const adaptAddress = (d: DireccionAPI): Address => ({
@@ -106,6 +159,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
       const data: any[] = await API.getPedidos(user.token);
       const mapped: Order[] = data.map((p) => ({
         id: `ORD-${p.idPedido}`,
+        idPedido: Number(p.idPedido),   // ← ID numérico directo
         date: new Date(p.fechaPedido).toLocaleDateString("es-CO", {
           day: "numeric", month: "long", year: "numeric",
         }),
@@ -244,6 +298,7 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     <OrdersContext.Provider value={{
       orders, addresses, apiAddresses, payments,
       isLoadingOrders, isLoadingAddresses,
+      stockMap,
       loadOrders, loadAddresses,
       placeOrder, addAddress, updateAddress, deleteAddress,
       addPayment, updatePayment, deletePayment,
@@ -257,4 +312,18 @@ export function useOrders() {
   const ctx = useContext(OrdersContext);
   if (!ctx) throw new Error("useOrders must be used within OrdersProvider");
   return ctx;
+}
+
+// ── Helper: mapear idEstadoPedido a status legible ────────────────────────────
+function mapEstadoMovil(id: number): Order["status"] {
+  switch (id) {
+    case 1: return "pendiente";
+    case 2: return "pendiente";
+    case 3: return "en_proceso";
+    case 4: return "en_proceso";
+    case 5: return "en_camino" as any;
+    case 6: return "entregado";
+    case 7: return "cancelado";
+    default: return "pendiente";
+  }
 }

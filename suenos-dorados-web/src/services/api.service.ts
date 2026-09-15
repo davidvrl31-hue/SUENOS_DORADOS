@@ -358,6 +358,27 @@ export const SueñosDoradosAPI = {
     if (!res.ok) throw new Error("Error al eliminar dirección");
   },
 
+  // ── Facturas ──────────────────────────────────────────────────────────────
+  /**
+   * Descarga la factura en PDF de un pedido.
+   * Crea un <a> temporal y dispara la descarga en el navegador.
+   */
+  descargarFactura: async (token: string, idPedido: number): Promise<void> => {
+    const res = await fetch(`${API_URL}/facturas/pedido/${idPedido}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error('No se pudo generar la factura');
+    const blob = await res.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `Factura-SD-${String(idPedido).padStart(6, '0')}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  },
+
   // ── Pedidos ──────────────────────────────────────────────────────────────────
   crearPedido: async (token: string, payload: CreatePedidoPayload) => {
     const res = await fetch(`${API_URL}/pedidos`, {

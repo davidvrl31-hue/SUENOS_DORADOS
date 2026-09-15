@@ -1,8 +1,9 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Package, ArrowLeft, Loader2, RefreshCw } from "lucide-react";
+import { Package, ArrowLeft, Loader2, RefreshCw, Download } from "lucide-react";
 import { useApp } from "@/app/context/AppContext";
+import { SueñosDoradosAPI } from "@/src/services/api.service";
 
 const statusColors: Record<string, string> = {
   entregado: "bg-green-100 text-green-700",
@@ -22,6 +23,19 @@ const statusLabel: Record<string, string> = {
 
 export default function MisPedidosPage() {
   const { orders, loadOrders, isLoadingOrders, user } = useApp();
+  const [descargando, setDescargando] = useState<number | null>(null);
+
+  const handleDescargarFactura = async (idPedido: number) => {
+    if (!user?.token) return;
+    setDescargando(idPedido);
+    try {
+      await SueñosDoradosAPI.descargarFactura(user.token, idPedido);
+    } catch {
+      alert("No se pudo generar la factura. Intenta de nuevo.");
+    } finally {
+      setDescargando(null);
+    }
+  };
 
   useEffect(() => {
     if (user?.token) loadOrders();
@@ -118,6 +132,21 @@ export default function MisPedidosPage() {
               <span className="text-sm text-gray-500">Total pagado</span>
               <span className="font-bold text-primary">${order.total.toLocaleString("es-CO")}</span>
             </div>
+            <div className="flex justify-between items-center text-xs text-gray-400">
+              <span>IVA incluido (19%)</span>
+              <span>${Math.round(order.total - order.total / 1.19).toLocaleString("es-CO")}</span>
+            </div>
+
+            {/* Botón descargar factura */}
+            <button
+              onClick={() => handleDescargarFactura(Number(order.id.replace("ORD-", "")))}
+              disabled={descargando === Number(order.id.replace("ORD-", ""))}
+              className="w-full mt-2 flex items-center justify-center gap-2 text-xs font-semibold text-primary border border-primary rounded-xl py-2.5 hover:bg-primary-light transition-colors disabled:opacity-50"
+            >
+              {descargando === Number(order.id.replace("ORD-", ""))
+                ? <><Loader2 size={13} className="animate-spin" /> Generando...</>
+                : <><Download size={13} /> Descargar factura PDF</>}
+            </button>
           </div>
         ))}
       </div>

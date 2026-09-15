@@ -27,7 +27,7 @@ const DIR_VACIO = {
 };
 
 export default function CarritoPage() {
-  const { cart, removeFromCart, updateQty, clearCart, user, loadOrders } = useApp();
+  const { cart, removeFromCart, updateQty, clearCart, user, loadOrders, stockMap } = useApp();
   const router = useRouter();
 
   const [step,    setStep]    = useState<"cart" | "redirigiendo">("cart");
@@ -195,7 +195,12 @@ export default function CarritoPage() {
 
         {/* ── Lista de productos ── */}
         <div className="lg:col-span-2 space-y-3">
-          {cart.map((item) => (
+          {cart.map((item) => {
+            // Stock en tiempo real desde WebSocket (prioridad) o del ítem
+            const stockActual = stockMap[item.idVariante ?? 0] ?? item.stockDisponible ?? Infinity;
+            const enLimite    = item.quantity >= stockActual;
+
+            return (
             <div key={`${item.id}-${item.idVariante ?? 0}`} className="card p-4">
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
@@ -235,6 +240,16 @@ export default function CarritoPage() {
                       </span>
                     )}
                   </div>
+                  {/* Alerta stock máximo alcanzado */}
+                  {enLimite && stockActual !== Infinity && (
+                    <p className="text-xs text-amber-600 font-medium">
+                      ⚠️ Máximo disponible: {stockActual} unidad{stockActual === 1 ? "" : "es"}
+                    </p>
+                  )}
+                  {/* Stock agotado por WebSocket */}
+                  {stockActual === 0 && (
+                    <p className="text-xs text-red-500 font-semibold">Sin stock — eliminado del carrito pronto</p>
+                  )}
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
                       <button onClick={() => updateQty(item.id, item.quantity - 1, item.idVariante)}
@@ -242,11 +257,19 @@ export default function CarritoPage() {
                         <Minus size={14} />
                       </button>
                       <span className="text-sm font-bold w-10 text-center">{item.quantity}</span>
+                      {/* Botón + bloqueado si se alcanza el stock */}
                       <button
-                        onClick={() => updateQty(item.id, item.quantity + 1, item.idVariante)}
-                        disabled={item.stockDisponible !== undefined && item.quantity >= item.stockDisponible}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white transition-colors active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                        title={item.stockDisponible !== undefined && item.quantity >= item.stockDisponible ? `Máximo: ${item.stockDisponible}` : undefined}
+                        onClick={() => {
+                          if (enLimite) return;
+                          updateQty(item.id, item.quantity + 1, item.idVariante);
+                        }}
+                        disabled={enLimite}
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors active:scale-95 ${
+                          enLimite
+                            ? "opacity-30 cursor-not-allowed"
+                            : "hover:bg-white"
+                        }`}
+                        title={enLimite ? `Stock máximo: ${stockActual}` : undefined}
                       >
                         <Plus size={14} />
                       </button>
@@ -259,7 +282,8 @@ export default function CarritoPage() {
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* ── Panel derecho ── */}
@@ -439,10 +463,22 @@ export default function CarritoPage() {
                   {envio === 0 ? "Gratis" : `$${envio.toLocaleString("es-CO")}`}
                 </span>
               </div>
+              {/* IVA discriminado */}
+              <div className="border-t border-gray-100 pt-2 space-y-1">
+                <div className="flex justify-between text-gray-400 text-xs">
+                  <span>Base imponible</span>
+                  <span>${Math.round(subtotal / 1.19).toLocaleString("es-CO")}</span>
+                </div>
+                <div className="flex justify-between text-gray-400 text-xs">
+                  <span>IVA (19%)</span>
+                  <span>${Math.round(subtotal - subtotal / 1.19).toLocaleString("es-CO")}</span>
+                </div>
+              </div>
               <div className="border-t border-gray-100 pt-2 flex justify-between font-bold text-gray-900">
                 <span>Total</span>
                 <span className="text-primary">${total.toLocaleString("es-CO")}</span>
               </div>
+              <p className="text-[10px] text-gray-400 text-right">IVA incluido en el precio</p>
             </div>
 
             {error && (

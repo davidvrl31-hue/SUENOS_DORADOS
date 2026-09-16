@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { IoAdapter } from '@nestjs/platform-socket.io';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { AuthService } from './auth/auth.service';
@@ -32,6 +33,9 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   });
+
+  // ── Adaptador Socket.io para WebSockets en tiempo real ──
+  app.useWebSocketAdapter(new IoAdapter(app));
 
   // ── Seeding: garantiza roles y usuario administrador por defecto ──
   // Se ejecuta siempre al arrancar. Si el admin ya existe, no hace nada.

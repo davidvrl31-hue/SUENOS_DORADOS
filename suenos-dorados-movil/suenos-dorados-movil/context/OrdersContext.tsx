@@ -197,10 +197,11 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
   // ── Direcciones ───────────────────────────────────────────────────────────
   const addAddress = useCallback(async (addr: Omit<Address, "id">) => {
     if (!user?.token) return;
+    const [municipio, ...restDep] = addr.city.split(",");
     const nueva = await API.crearDireccion(user.token, {
       descripcionDireccion:    addr.fullAddress,
-      descripcionMunicipio:    addr.city.split(",")[0]?.trim() ?? addr.city,
-      descripcionDepartamento: addr.city.split(",")[1]?.trim() ?? "",
+      descripcionMunicipio:    municipio?.trim() ?? addr.city,
+      descripcionDepartamento: restDep.join(",").trim() || "Sin especificar",
       etiqueta:                addr.label || "Casa",
       telefonoContacto:        addr.phone || undefined,
       esPrincipal:             addr.isDefault,
@@ -210,10 +211,13 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
 
   const updateAddress = useCallback(async (addr: Address) => {
     if (!user?.token || !addr.idDireccion) return;
+    const [municipio, ...restDep] = addr.city.split(",");
     const updated = await (API as any).actualizarDireccion(user.token, addr.idDireccion, {
       descripcionDireccion:    addr.fullAddress,
-      descripcionMunicipio:    addr.city.split(",")[0]?.trim() ?? addr.city,
-      descripcionDepartamento: addr.city.split(",")[1]?.trim() ?? "",
+      descripcionMunicipio:    municipio?.trim() ?? addr.city,
+      descripcionDepartamento: restDep.join(",").trim() || "Sin especificar",
+      etiqueta:                addr.label || "Casa",
+      telefonoContacto:        addr.phone || undefined,
       esPrincipal:             addr.isDefault,
     });
     setApiAddresses((prev) => prev.map((a) => a.idDireccion === addr.idDireccion ? updated : a));

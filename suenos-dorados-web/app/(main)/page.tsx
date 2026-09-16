@@ -17,19 +17,23 @@ export default async function HomePage() {
   const products: Product[] = apiProductos
     .filter((p) => p.estadoProducto)
     .map((p) => {
-      const cat = apiCategorias.find((c) => c.idCategoria === p.idCategoria);
-      const variante = apiVariantes.find((v) => v.idProducto === p.idProducto && v.estado);
-      
+      const cat      = apiCategorias.find((c) => c.idCategoria === p.idCategoria);
+      const varsProd = apiVariantes.filter((v) => v.idProducto === p.idProducto && v.estado);
+      // Variante con stock > 0 o la primera disponible
+      const variante   = varsProd.find((v) => v.stock > 0) ?? varsProd[0];
+      const stockTotal = varsProd.reduce((s, v) => s + v.stock, 0);
+
       return {
-        id: p.idProducto,
-        name: p.nombreProducto,
-        price: variante ? Number(variante.precio) : 0,
-        originalPrice: undefined, // TODO: Implementar campo de precio anterior si se requiere
-        image: p.imagenUrl || PLACEHOLDER_IMAGE,
-        category: cat?.nombreCategoria ?? "Sin categoría",
-        slug: p.slug,
+        id:          p.idProducto,
+        idVariante:  variante?.idVariante,
+        name:        p.nombreProducto,
+        price:       variante ? Number(variante.precio) : 0,
+        image:       p.imagenUrl || PLACEHOLDER_IMAGE,
+        category:    cat?.nombreCategoria ?? "Sin categoría",
+        slug:        p.slug,
         descripcion: p.descripcionProducto ?? undefined,
-        badge: variante && variante.stock === 0 ? "Agotado" : undefined,
+        stock:       stockTotal,
+        badge:       stockTotal === 0 ? "Agotado" : undefined,
       };
     });
 

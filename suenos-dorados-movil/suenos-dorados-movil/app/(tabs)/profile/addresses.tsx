@@ -10,7 +10,7 @@ import { useToast } from "../../../components/ui/Toast";
 import { COLORS, RADIUS } from "../../../constants/theme";
 import { Address, useOrders } from "../../../context/OrdersContext";
 
-const EMPTY_FORM = { label: "", fullAddress: "", city: "", phone: "", isDefault: false };
+const EMPTY_FORM = { label: "", fullAddress: "", municipio: "", departamento: "", phone: "", isDefault: false };
 
 export default function Addresses() {
     const { addresses, addAddress, updateAddress, deleteAddress } = useOrders();
@@ -28,26 +28,32 @@ export default function Addresses() {
 
     const openEdit = (addr: Address) => {
         setEditing(addr);
+        const [municipio, ...restDep] = addr.city.split(",");
         setForm({
-            label: addr.label,
-            fullAddress: addr.fullAddress,
-            city: addr.city,
-            phone: addr.phone,
-            isDefault: addr.isDefault,
+            label:        addr.label,
+            fullAddress:  addr.fullAddress,
+            municipio:    municipio?.trim() ?? "",
+            departamento: restDep.join(",").trim(),
+            phone:        addr.phone,
+            isDefault:    addr.isDefault,
         });
         setModalVisible(true);
     };
 
     const handleSave = async () => {
-        if (!form.label.trim() || !form.fullAddress.trim() || !form.city.trim()) {
-            showToast("Completá los campos obligatorios", "error");
+        if (!form.label.trim() || !form.fullAddress.trim() || !form.municipio.trim() || !form.departamento.trim()) {
+            showToast("Completá todos los campos obligatorios", "error");
             return;
         }
+        const addrData = {
+            ...form,
+            city: `${form.municipio.trim()}, ${form.departamento.trim()}`,
+        };
         if (editing) {
-            await updateAddress({ ...form, id: editing.id });
+            await updateAddress({ ...addrData, id: editing.id, idDireccion: editing.idDireccion });
             showToast("Dirección actualizada ✅");
         } else {
-            await addAddress(form);
+            await addAddress(addrData);
             showToast("Dirección guardada ✅");
         }
         setModalVisible(false);
@@ -130,10 +136,16 @@ export default function Addresses() {
                     multiline
                 />
                 <FormField
-                    label="Ciudad *"
-                    placeholder="Bogotá, Medellín..."
-                    value={form.city}
-                    onChangeText={(t) => setForm((f) => ({ ...f, city: t }))}
+                    label="Ciudad / Municipio *"
+                    placeholder="Bogotá, Cali, Medellín..."
+                    value={form.municipio}
+                    onChangeText={(t) => setForm((f) => ({ ...f, municipio: t }))}
+                />
+                <FormField
+                    label="Departamento *"
+                    placeholder="Cundinamarca, Valle del Cauca..."
+                    value={form.departamento}
+                    onChangeText={(t) => setForm((f) => ({ ...f, departamento: t }))}
                 />
                 <FormField
                     label="Teléfono de contacto"

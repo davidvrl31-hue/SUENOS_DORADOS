@@ -39,6 +39,12 @@ const ProductCard = memo(function ProductCard({ product, variant = "featured" }:
     const { showToast }               = useToast();
     const fav = isFavorite(product.id);
 
+    // Stock real de la primera variante disponible
+    const idProducto    = Number(String(product.id).split("-")[0]);
+    const variantes     = getVariantesByProducto(idProducto);
+    const stockTotal    = variantes.reduce((s, v) => s + v.stock, 0);
+    const agotado       = variantes.length > 0 && stockTotal === 0;
+
     // ── Navegar al detalle del producto ──────────────────────────────────────
     const handlePress = useCallback(() => {
         const parts     = String(product.id).split("-");
@@ -118,6 +124,11 @@ const ProductCard = memo(function ProductCard({ product, variant = "featured" }:
                             <Text style={s.badgeTxt}>{product.badge}</Text>
                         </View>
                     )}
+                    {agotado && (
+                        <View style={s.agotadoBadge}>
+                            <Text style={s.agotadoBadgeTxt}>Agotado</Text>
+                        </View>
+                    )}
                     {product.originalPrice && (
                         <View style={[s.pctBadge, { backgroundColor: product.accent ?? COLORS.orange }]}>
                             <Text style={s.pctTxt}>{pct(product.originalPrice, product.price)}</Text>
@@ -151,14 +162,15 @@ const ProductCard = memo(function ProductCard({ product, variant = "featured" }:
                         )}
                     </View>
                     <TouchableOpacity
-                        style={s.addBtn}
+                        style={[s.addBtn, agotado && s.addBtnDisabled]}
                         onPress={handleAddToCart}
+                        disabled={agotado}
                         activeOpacity={0.85}
                         accessibilityLabel={`Agregar ${product.name} al carrito`}
                         accessibilityRole="button"
                     >
                         <Feather name="shopping-cart" size={13} color="#fff" />
-                        <Text style={s.addBtnTxt}>Agregar</Text>
+                        <Text style={s.addBtnTxt}>{agotado ? "Agotado" : "Agregar"}</Text>
                     </TouchableOpacity>
                 </View>
             </TouchableOpacity>
@@ -194,14 +206,15 @@ const ProductCard = memo(function ProductCard({ product, variant = "featured" }:
                     <Text style={s.gridName} numberOfLines={2}>{product.name}</Text>
                     <Text style={s.priceSale}>{fmt(product.price)}</Text>
                     <TouchableOpacity
-                        style={s.addBtnSm}
+                        style={[s.addBtnSm, agotado && s.addBtnDisabled]}
                         onPress={handleAddToCart}
+                        disabled={agotado}
                         activeOpacity={0.85}
                         accessibilityLabel={`Agregar ${product.name} al carrito`}
                         accessibilityRole="button"
                     >
                         <Feather name="shopping-cart" size={12} color="#fff" />
-                        <Text style={s.addBtnSmTxt}>Agregar</Text>
+                        <Text style={s.addBtnSmTxt}>{agotado ? "Agotado" : "Agregar"}</Text>
                     </TouchableOpacity>
                 </View>
             </TouchableOpacity>
@@ -230,12 +243,13 @@ const ProductCard = memo(function ProductCard({ product, variant = "featured" }:
             </View>
             {/* Botón + con validación de stock */}
             <TouchableOpacity
-                style={s.plusBtn}
+                style={[s.plusBtn, agotado && s.addBtnDisabled]}
                 onPress={handleAddToCart}
+                disabled={agotado}
                 accessibilityLabel={`Agregar ${product.name} al carrito`}
                 accessibilityRole="button"
             >
-                <Feather name="plus" size={18} color={COLORS.orange} />
+                <Feather name={agotado ? "x" : "plus"} size={18} color={agotado ? COLORS.muted : COLORS.orange} />
             </TouchableOpacity>
         </TouchableOpacity>
     );
@@ -316,6 +330,13 @@ const s = StyleSheet.create({
         gap: 6, marginTop: 4, backgroundColor: COLORS.orange, borderRadius: 9, paddingVertical: 9,
     },
     addBtnTxt: { color: "#fff", fontSize: 12, fontWeight: "700" },
+    addBtnDisabled: { backgroundColor: COLORS.mutedDark, opacity: 0.5 },
+    agotadoBadge: {
+        position: "absolute", top: 10, left: 10,
+        backgroundColor: "#FEE2E2", borderRadius: 8,
+        paddingHorizontal: 8, paddingVertical: 3, zIndex: 2,
+    },
+    agotadoBadgeTxt: { fontSize: 10, fontWeight: "700", color: "#C62828" },
 
     // Grid
     gridCard: {

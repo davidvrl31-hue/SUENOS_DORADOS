@@ -8,16 +8,18 @@ import { Product } from "@/app/context/AppContext";
 
 const PLACEHOLDER_IMAGE = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80";
 
-function mapToProduct(p: Producto, nombreCategoria: string, price: number, stockMin: number): Product {
+function mapToProduct(p: Producto, nombreCategoria: string, price: number, stockMin: number, idVariante?: number): Product {
   return {
-    id: p.idProducto,
-    name: p.nombreProducto,
-    price: price,
-    image: p.imagenUrl || PLACEHOLDER_IMAGE,
-    category: nombreCategoria,
-    slug: p.slug,
+    id:         p.idProducto,
+    idVariante,
+    name:       p.nombreProducto,
+    price,
+    image:      p.imagenUrl || PLACEHOLDER_IMAGE,
+    category:   nombreCategoria,
+    slug:       p.slug,
     descripcion: p.descripcionProducto ?? undefined,
-    stock: stockMin,
+    stock:      stockMin,
+    badge:      stockMin === 0 ? "Agotado" : undefined,
   };
 }
 
@@ -47,11 +49,12 @@ function BusquedaContent() {
           .filter((p) => p.estadoProducto)
           .map((p) => {
             const cat = cats.find((c) => c.idCategoria === p.idCategoria);
-            const varsProd = vars.filter((v) => v.idProducto === p.idProducto && v.estado);
-            const precios  = varsProd.map((v) => Number(v.precio));
+            const varsProd  = vars.filter((v) => v.idProducto === p.idProducto && v.estado);
+            const precios   = varsProd.map((v) => Number(v.precio));
             const precioMin = precios.length > 0 ? Math.min(...precios) : 0;
             const stockTotal = varsProd.reduce((sum, v) => sum + v.stock, 0);
-            return mapToProduct(p, cat?.nombreCategoria ?? "Sin categoría", precioMin, stockTotal);
+            const varConStock = varsProd.find((v) => v.stock > 0) ?? varsProd[0];
+            return mapToProduct(p, cat?.nombreCategoria ?? "Sin categoría", precioMin, stockTotal, varConStock?.idVariante);
           });
         setProductos(mapeados);
       } catch {

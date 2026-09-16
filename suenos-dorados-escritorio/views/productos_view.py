@@ -227,6 +227,76 @@ class ColeccionesView(BaseCrudView):
 
 class InventarioCrudMixin:
     def _stock_adjust_panel(self):
+        # Contar productos sin variantes para mostrar aviso
+        productos_sin_variante = []
+        try:
+            db = SessionLocal()
+            try:
+                rows = db.execute(text("""
+                    SELECT p.id_producto, p.nombre_producto
+                    FROM productos p
+                    WHERE p.estado_producto = true
+                      AND NOT EXISTS (
+                          SELECT 1 FROM variantes_producto v WHERE v.id_producto = p.id_producto
+                      )
+                    ORDER BY p.id_producto DESC
+                    LIMIT 10
+                """)).mappings().all()
+                productos_sin_variante = list(rows)
+            finally:
+                db.close()
+        except Exception:
+            productos_sin_variante = []
+
+        aviso_controles = []
+        if productos_sin_variante:
+            nombres = ", ".join([r["nombre_producto"] for r in productos_sin_variante[:5]])
+            if len(productos_sin_variante) > 5:
+                nombres += f" y {len(productos_sin_variante) - 5} más..."
+            aviso_controles = [
+                ft.Container(
+                    bgcolor="#FFF3CD",
+                    border_radius=10,
+                    padding=ft.Padding(left=14, right=14, top=10, bottom=10),
+                    border=ft.Border(
+                        left=ft.BorderSide(1, "#FBBF24"),
+                        right=ft.BorderSide(1, "#FBBF24"),
+                        top=ft.BorderSide(1, "#FBBF24"),
+                        bottom=ft.BorderSide(1, "#FBBF24"),
+                    ),
+                    content=ft.Row(
+                        spacing=10,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                        controls=[
+                            ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, color="#B45309", size=20),
+                            ft.Column(
+                                spacing=2,
+                                expand=True,
+                                controls=[
+                                    ft.Text(
+                                        "Productos sin variantes — no aparecen en el inventario",
+                                        size=12,
+                                        weight=ft.FontWeight.W_700,
+                                        color="#92400E",
+                                    ),
+                                    ft.Text(
+                                        f"{nombres}",
+                                        size=11,
+                                        color="#92400E",
+                                    ),
+                                    ft.Text(
+                                        "Para agregar stock ve a Catálogo → Variantes SKU y crea una variante con SKU, precio, medida y color.",
+                                        size=11,
+                                        color="#78350F",
+                                        italic=True,
+                                    ),
+                                ],
+                            ),
+                        ],
+                    ),
+                )
+            ]
+
         return ft.Container(
             bgcolor=Tema.GOLD_SOFT,
             border_radius=14,
@@ -252,6 +322,7 @@ class InventarioCrudMixin:
                             ft.Icon(ft.Icons.INVENTORY_2_ROUNDED, color="#B35A00", size=26),
                         ],
                     ),
+                    *aviso_controles,
                     ft.Row(
                         spacing=12,
                         wrap=True,
@@ -298,14 +369,17 @@ class InventarioCrudMixin:
                     FROM variantes_producto v
                     LEFT JOIN productos p ON p.id_producto = v.id_producto
                     ORDER BY v.id_variante DESC
-                    LIMIT 60
+                    LIMIT 200
                 """)).mappings().all()
             finally:
                 db.close()
         except Exception:
             return options
         for row in rows:
-            options.append(ft.dropdown.Option(key=str(row["id_variante"]), text=f"{row['nombre_producto'] or 'Producto'} | {row['sku']} | Stock {row['stock']}"))
+            options.append(ft.dropdown.Option(
+                key=str(row["id_variante"]),
+                text=f"{row['nombre_producto'] or 'Producto'} | {row['sku']} | Stock {row['stock']}"
+            ))
         return options
 
     def _build_stock_delta_field(self):
@@ -372,7 +446,7 @@ class InventarioCrudMixin:
             LEFT JOIN colores c ON c.id_color = v.id_color
             {where_sql}
             ORDER BY v.id_variante DESC
-            LIMIT 35
+            LIMIT 100
         """
         try:
             db = SessionLocal()
@@ -600,68 +674,20 @@ class InventarioCrudMixin:
             self._show_message("Error en stock", str(exc), Tema.ERROR)
 
     def _apply_stock_movement(self, variant_id, qty, sign, reference, observation):
-        db = SessionLocal()
+        # Usar la API REST en vez de SQLAlchemy directo para
+        # que el evento WebSocket se emita a web y móvil automáticamente
+        import api_client
         try:
-            self._ensure_kardex_table(db)
-            row = db.execute(
-                text("SELECT stock FROM variantes_producto WHERE id_variante = :id FOR UPDATE"),
-                {"id": variant_id},
-            ).mappings().first()
-            if not row:
-                raise ValueError("SKU no encontrado")
-            previous = int(row["stock"])
-            new_stock = previous + (qty * sign)
-            if new_stock < 0:
-                raise ValueError("El stock no puede quedar negativo")
-            movement_date = datetime.now().strftime("%d/%m/%Y %H:%M")
-            movement_observation = (
-                f"Se añadieron {qty} unidades el {movement_date}"
-                if sign > 0
-                else f"Se quitaron {qty} unidades el {movement_date}"
+            delta = qty * sign
+            result = api_client.ajustar_stock(
+                id_variante=variant_id,
+                delta=delta,
+                referencia=reference,
+                observacion=observation,
             )
-            db.execute(text("UPDATE variantes_producto SET stock = :stock WHERE id_variante = :id"), {"stock": new_stock, "id": variant_id})
-            columns = self._kardex_columns(db)
-            insert_columns = ["id_variante", "tipo_movimiento", "cantidad"]
-            insert_values = [":id", ":tipo", ":cantidad"]
-            params = {
-                "id": variant_id,
-                "tipo": "ENTRADA" if sign > 0 else "SALIDA",
-                "cantidad": qty,
-            }
-            if "stock_anterior" in columns:
-                insert_columns.append("stock_anterior")
-                insert_values.append(":anterior")
-                params["anterior"] = previous
-            if "stock_nuevo" in columns:
-                insert_columns.append("stock_nuevo")
-                insert_values.append(":nuevo")
-                params["nuevo"] = new_stock
-            if "referencia_documento" in columns:
-                insert_columns.append("referencia_documento")
-                insert_values.append(":ref")
-                params["ref"] = reference
-            if "observacion" in columns:
-                insert_columns.append("observacion")
-                insert_values.append(":obs")
-                params["obs"] = movement_observation
-            if "motivo" in columns:
-                insert_columns.append("motivo")
-                insert_values.append(":motivo")
-                params["motivo"] = movement_observation
-            if "fecha_movimiento" in columns:
-                insert_columns.append("fecha_movimiento")
-                insert_values.append("CURRENT_TIMESTAMP")
-            db.execute(
-                text(f"INSERT INTO movimientos_inventario ({', '.join(insert_columns)}) VALUES ({', '.join(insert_values)})"),
-                params,
-            )
-            db.commit()
-            return new_stock
-        except Exception:
-            db.rollback()
-            raise
-        finally:
-            db.close()
+            return int(result.get("stock", 0))
+        except Exception as exc:
+            raise ValueError(str(exc)) from exc
 
 
 class InventarioView(InventarioCrudMixin, BaseCrudView):

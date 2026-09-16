@@ -81,6 +81,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const syncCart = useCallback(async (token: string, localItems: CartItem[]) => {
         try {
             const dbCart = await API.getCarrito(token);
+
+            // Obtener stock real de todas las variantes del carrito
+            const variantIds = dbCart
+                .map((i: any) => Number(i.idVariante))
+                .filter((id: number) => id > 0);
+            const stockPorVariante: Record<number, number> = {};
+            if (variantIds.length > 0) {
+                try {
+                    const allVars = await API.getVariantes();
+                    for (const v of allVars) {
+                        if (variantIds.includes(v.idVariante)) {
+                            stockPorVariante[v.idVariante] = v.stock;
+                        }
+                    }
+                } catch { /* fallback silencioso */ }
+            }
+
             const mappedDb: CartItem[] = dbCart.map((i: any) => ({
                 id: `${i.id}-${i.idVariante}`,
                 name: i.name,
@@ -88,6 +105,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 qty: Number(i.quantity),
                 image: i.image?.trim() || "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80",
                 idVariante: Number(i.idVariante),
+                stockDisponible: stockPorVariante[Number(i.idVariante)],
             }));
 
             // BD tiene prioridad. Solo agregar ítems locales ausentes en BD (offline additions)
@@ -115,6 +133,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                     qty: Number(i.quantity),
                     image: i.image?.trim() || "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80",
                     idVariante: Number(i.idVariante),
+                    stockDisponible: stockPorVariante[Number(i.idVariante)],
                 }));
                 setItems(finalMapped);
             } else if (mappedDb.length > 0) {

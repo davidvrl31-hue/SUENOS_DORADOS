@@ -207,6 +207,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
+   * Enriquece los ítems del carrito con stockDisponible real desde la API.
+   * Se llama después de sincronizar con BD para que el carrito web
+   * siempre tenga el stock actualizado y pueda bloquear el botón +.
+   */
+  const enrichCartWithStock = useCallback(async (items: CartItem[]): Promise<CartItem[]> => {
+    if (items.length === 0) return items;
+    try {
+      // Obtener IDs de productos únicos
+      const idProductos = [...new Set(items.map((i) => i.id))];
+      const allVars: { idVariante: number; stock: number; idProducto: number }[] = [];
+      await Promise.all(
+        idProductos.map(async (idProducto) => {
+          const res = await fetch(`${API_URL}/variantes-producto?idProducto=${idProducto}`);
+          if (res.ok) {
+            const vars = await res.json();
+            allVars.push(...vars);
+          }
+        })
+      );
+      return items.map((item) => {
+        const variante = allVars.find((v) => v.idVariante === item.idVariante);
+        return variante ? { ...item, stockDisponible: variante.stock } : item;
+      });
+    } catch {
+      return items;
+    }
+  }, []);
+
+  /**
    * syncCart — BD es fuente de verdad para dispositivos múltiples.
    * Estrategia: BD tiene prioridad. Los ítems locales que no están en BD
    * se agregan (pueden ser ítems sin sesión añadidos offline).
@@ -243,14 +272,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
           body: JSON.stringify({ items: payload }),
         });
         if (saveRes.ok) {
-          // Usar la respuesta de BD como estado definitivo
+          // Usar la respuesta de BD como estado definitivo — enriquecer con stock
           const saved: CartItem[] = await saveRes.json();
-          setCart(saved);
+          const enriched = await enrichCartWithStock(saved);
+          setCart(enriched);
           return;
         }
       } else if (dbCart.length > 0) {
-        // No hay ítems locales pero sí en BD → usar BD
-        setCart(dbCart);
+        // No hay ítems locales pero sí en BD → usar BD enriquecida
+        const enriched = await enrichCartWithStock(dbCart);
+        setCart(enriched);
         return;
       }
 
@@ -303,6 +334,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (currentUser?.token) {
         syncCart(currentUser.token, currentCart);
         syncFavorites(currentUser.token, currentFavs);
+      } else if (currentCart.length > 0) {
+        // Sin sesión: enriquecer el carrito local con stock real
+        enrichCartWithStock(currentCart).then(setCart);
       }
     } catch { /* noop */ }
   }, []); // eslint-disable-line

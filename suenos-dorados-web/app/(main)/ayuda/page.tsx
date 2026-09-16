@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, MessageCircle, Mail, Phone, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowLeft, Mail, Phone, ChevronDown, ChevronUp } from "lucide-react";
 
 const faqs = [
   {
@@ -45,40 +45,36 @@ export default function AyudaPage() {
       {/* Contact options */}
       <section>
         <h2 className="text-lg font-bold text-gray-800 mb-4">Contáctanos</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {[
-            {
-              icon: MessageCircle,
-              label: "Chat en vivo",
-              sub: "Respuesta en minutos",
-              color: "bg-green-100 text-green-600",
-            },
-            {
-              icon: Mail,
-              label: "Enviar un correo",
-              sub: "soporte@suenosdorados.co",
-              color: "bg-blue-100 text-blue-600",
-            },
-            {
-              icon: Phone,
-              label: "Llamar al soporte",
-              sub: "+57 300 000 0000",
-              color: "bg-primary-light text-primary",
-            },
-          ].map(({ icon: Icon, label, sub, color }) => (
-            <button
-              key={label}
-              className="card p-4 flex items-center gap-3 hover:shadow-md transition-shadow text-left"
-            >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${color}`}>
-                <Icon size={18} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-800">{label}</p>
-                <p className="text-xs text-gray-400">{sub}</p>
-              </div>
-            </button>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Correo */}
+          <a
+            href="mailto:soporte@suenosdorados.co"
+            className="card p-4 flex items-center gap-3 hover:shadow-md transition-shadow text-left"
+          >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-blue-100 text-blue-600">
+              <Mail size={18} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">Enviar un correo</p>
+              <p className="text-xs text-gray-400">soporte@suenosdorados.co</p>
+            </div>
+          </a>
+
+          {/* Teléfono / WhatsApp */}
+          <a
+            href="https://wa.me/573000000000"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="card p-4 flex items-center gap-3 hover:shadow-md transition-shadow text-left"
+          >
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary-light text-primary">
+              <Phone size={18} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-800">WhatsApp / Llamar</p>
+              <p className="text-xs text-gray-400">+57 300 000 0000</p>
+            </div>
+          </a>
         </div>
       </section>
 

@@ -23,8 +23,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
-    // Inicializar con las notificaciones constantes de muestra
-    setNotifications(NOTIFICATIONS);
+    // Sin notificaciones mock — array vacío
+    setNotifications([]);
   }, []);
 
   const markAsRead = (id: string) => {

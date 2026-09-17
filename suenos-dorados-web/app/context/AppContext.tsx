@@ -236,58 +236,65 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * syncCart — BD es fuente de verdad para dispositivos múltiples.
-   * Estrategia: BD tiene prioridad. Los ítems locales que no están en BD
-   * se agregan (pueden ser ítems sin sesión añadidos offline).
-   * El stock real se respeta: si la BD devuelve qty > stock, se corrige.
+   * syncCart — BD es la única fuente de verdad cuando hay sesión activa.
+   *
+   * Estrategia cross-device:
+   * - Si hay sesión: usar BD directamente, ignorar localStorage.
+   *   Esto garantiza que vaciar en móvil se refleje en web y viceversa.
+   * - Solo si la BD está vacía Y hay ítems locales (primer login sin sesión
+   *   previa), subir los ítems locales a BD.
+   *
+   * Recibe `localItems` solo como fallback para el caso offline/primer login.
    */
-  const syncCart = useCallback(async (token: string, currentCart: CartItem[]) => {
+  const syncCart = useCallback(async (token: string, localItems: CartItem[]) => {
     try {
       const res = await fetch(`${API_URL}/usuarios/carrito`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) { setCart(currentCart); return; }
-
-      // La BD devuelve ítems con stock ya validado por el backend
-      const dbCart: CartItem[] = await res.json();
-
-      // Agregar ítems locales que no están en BD (offline additions)
-      const merged = [...dbCart];
-      for (const localItem of currentCart) {
-        const key = localItem.idVariante ?? localItem.id;
-        const idx = merged.findIndex((i) => (i.idVariante ?? i.id) === key);
-        if (idx === -1) {
-          // Ítem solo en local → agregar al merge para subirlo a BD
-          merged.push(localItem);
-        }
-        // Si ya existe en BD, la BD tiene prioridad — no sobreescribir
-      }
-
-      // Subir el merge a la BD (el backend valida stock y devuelve el estado real)
-      const payload = buildCartPayload(merged);
-      if (payload.length > 0) {
-        const saveRes = await fetch(`${API_URL}/usuarios/carrito`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ items: payload }),
-        });
-        if (saveRes.ok) {
-          // Usar la respuesta de BD como estado definitivo — enriquecer con stock
-          const saved: CartItem[] = await saveRes.json();
-          const enriched = await enrichCartWithStock(saved);
-          setCart(enriched);
-          return;
-        }
-      } else if (dbCart.length > 0) {
-        // No hay ítems locales pero sí en BD → usar BD enriquecida
-        const enriched = await enrichCartWithStock(dbCart);
+      if (!res.ok) {
+        // No se pudo llegar a BD — usar local enriquecido
+        const enriched = await enrichCartWithStock(localItems);
         setCart(enriched);
         return;
       }
 
-      setCart(merged);
-    } catch { setCart(currentCart); }
-  }, []);
+      const dbCart: CartItem[] = await res.json();
+
+      // ── BD tiene ítems → BD manda, ignorar localStorage ──────────────
+      if (dbCart.length > 0) {
+        const enriched = await enrichCartWithStock(dbCart);
+        setCart(enriched);
+        // Actualizar localStorage para que coincida con BD
+        localStorage.setItem("sd_cart", JSON.stringify(enriched));
+        return;
+      }
+
+      // ── BD vacía + hay ítems locales → primer login, subir a BD ──────
+      if (localItems.length > 0) {
+        const payload = buildCartPayload(localItems);
+        if (payload.length > 0) {
+          const saveRes = await fetch(`${API_URL}/usuarios/carrito`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ items: payload }),
+          });
+          if (saveRes.ok) {
+            const saved: CartItem[] = await saveRes.json();
+            const enriched = await enrichCartWithStock(saved);
+            setCart(enriched);
+            localStorage.setItem("sd_cart", JSON.stringify(enriched));
+            return;
+          }
+        }
+      }
+
+      // ── BD vacía y sin ítems locales → carrito vacío ─────────────────
+      setCart([]);
+      localStorage.setItem("sd_cart", JSON.stringify([]));
+    } catch {
+      setCart(localItems);
+    }
+  }, [enrichCartWithStock]);
 
   const syncFavorites = useCallback(async (token: string, currentFavs: Product[]) => {
     try {
@@ -332,6 +339,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (savedAddresses) setAddresses(JSON.parse(savedAddresses));
 
       if (currentUser?.token) {
+        // Rehidratación tras reload: sincronizar con BD usando los datos frescos de
+        // localStorage (currentCart/currentFavs) — no hay riesgo de closure stale aquí
+        // porque leemos directamente del storage, no del estado React.
         syncCart(currentUser.token, currentCart);
         syncFavorites(currentUser.token, currentFavs);
       } else if (currentCart.length > 0) {
@@ -351,12 +361,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUserState(u);
     if (u) {
       localStorage.setItem("sd_user", JSON.stringify(u));
-      syncCart(u.token, cart);
-      syncFavorites(u.token, favorites);
+      // Leer el carrito/favoritos directamente desde localStorage en lugar del
+      // closure (que puede estar stale si setUser se llama justo después del
+      // mount antes de que React actualice el estado).
+      let freshCart: CartItem[]  = [];
+      let freshFavs: Product[]   = [];
+      try {
+        const rawCart = localStorage.getItem("sd_cart");
+        const rawFavs = localStorage.getItem("sd_favorites");
+        if (rawCart) freshCart = JSON.parse(rawCart);
+        if (rawFavs) freshFavs = JSON.parse(rawFavs);
+      } catch { /* noop */ }
+      syncCart(u.token, freshCart);
+      syncFavorites(u.token, freshFavs);
     } else {
       localStorage.removeItem("sd_user");
     }
-  }, [cart, favorites, syncCart, syncFavorites]);
+  }, [syncCart, syncFavorites]);
 
   const logout = useCallback(() => {
     setUser(null);

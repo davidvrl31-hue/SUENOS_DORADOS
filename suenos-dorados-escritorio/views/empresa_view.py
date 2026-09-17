@@ -36,16 +36,22 @@ class EmpresaView(ft.Container):
             spacing=18,
             controls=[
                 ft.Container(
-                    bgcolor=Tema.BG_SIDEBAR,
+                    bgcolor=Tema.GOLD_SOFT,
                     border_radius=16,
                     padding=24,
-                    shadow=ft.BoxShadow(blur_radius=24, color=ft.Colors.with_opacity(0.16, "#172033"), offset=ft.Offset(0, 10)),
+                    border=ft.Border(
+                        left=ft.BorderSide(4, Tema.GOLD),
+                        right=ft.BorderSide(1, Tema.BORDER_SOFT),
+                        top=ft.BorderSide(1, Tema.BORDER_SOFT),
+                        bottom=ft.BorderSide(1, Tema.BORDER_SOFT),
+                    ),
+                    shadow=ft.BoxShadow(blur_radius=16, color=ft.Colors.with_opacity(0.07, ft.Colors.BLACK), offset=ft.Offset(0, 6)),
                     content=ft.Row(
                         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                         controls=[
                             ft.Column(spacing=5, controls=[
-                                ft.Text("Información de la empresa", size=22, weight=ft.FontWeight.W_800, color=Tema.TEXT_ON_DARK),
-                                ft.Text("Estos datos alimentan el encabezado del panel administrativo.", size=13, color=ft.Colors.with_opacity(0.78, Tema.TEXT_ON_DARK)),
+                                ft.Text("Información de la empresa", size=22, weight=ft.FontWeight.W_800, color=Tema.TEXT_PRIMARY),
+                                ft.Text("Estos datos alimentan el encabezado del panel administrativo.", size=13, color=Tema.TEXT_MUTED),
                             ]),
                             ft.Icon(ft.Icons.BUSINESS_ROUNDED, color=Tema.GOLD, size=34),
                         ],
@@ -97,7 +103,7 @@ class EmpresaView(ft.Container):
 
     def _save(self):
         self.info = self.controller.save_info({key: field.value for key, field in self.fields.items()})
-        self.feedback.value = "Información guardada. Vuelve al Dashboard para ver el encabezado actualizado."
+        self.feedback.value = "Información guardada. Vuelve al Tablero de control para ver el encabezado actualizado."
         self.feedback.visible = True
         try:
             self.update()

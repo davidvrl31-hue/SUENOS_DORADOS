@@ -186,10 +186,12 @@ export default function CarritoPage() {
   // ── Vista principal ───────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Mi carrito</h1>
-      <p className="text-sm text-gray-500">
-        {cart.length} {cart.length === 1 ? "producto" : "productos"}
-      </p>
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Mi carrito</h1>
+        <p className="text-sm text-gray-500 mt-0.5">
+          {cart.length} {cart.length === 1 ? "producto" : "productos"}
+        </p>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -488,6 +490,14 @@ export default function CarritoPage() {
             <button onClick={handleCheckout} disabled={loading}
               className="btn-primary mt-2 w-full flex items-center justify-center gap-2 disabled:opacity-60">
               {loading ? <><Loader2 size={16} className="animate-spin" /> Procesando...</> : <><CreditCard size={16} /> Ir a pagar →</>}
+            </button>
+
+            <button
+              onClick={() => clearCart()}
+              className="w-full flex items-center justify-center gap-2 text-sm font-semibold text-red-400 hover:text-red-600 border border-red-200 hover:bg-red-50 rounded-xl py-3 transition-colors"
+            >
+              <Trash2 size={15} />
+              Vaciar carrito
             </button>
 
             <div className="text-center space-y-1">

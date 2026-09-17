@@ -246,6 +246,50 @@ def cambiar_estado_pedido(id_: int, id_estado_pedido: int) -> dict:
 
 
 # ─────────────────────────────────────────────
+# ENVÍO / GUÍAS
+# ─────────────────────────────────────────────
+
+def listar_envios() -> list:
+    """Lista todos los envíos registrados."""
+    return _handle(requests.get(_url("envio"), headers=_headers())) or []
+
+
+def get_envio_por_pedido(id_pedido: int) -> dict | None:
+    """Retorna el envío de un pedido, o None si no existe."""
+    try:
+        return _handle(requests.get(_url(f"envio/pedido/{id_pedido}"), headers=_headers()))
+    except RuntimeError:
+        return None
+
+
+def guardar_guia(id_pedido: int, numero_guia: str, transportadora: str) -> dict:
+    """
+    Guarda número de guía y transportadora para un pedido.
+    - Si ya existe un envío para el pedido → PATCH /envio/:idEnvio
+    - Si no existe → POST /envio (crea el registro con estado 1)
+    """
+    envio = get_envio_por_pedido(id_pedido)
+    if envio:
+        id_envio = envio.get("idEnvio") or envio.get("id_envio")
+        return _handle(requests.patch(
+            _url(f"envio/{id_envio}"),
+            json={"numeroGuia": numero_guia, "transportadora": transportadora},
+            headers=_headers(),
+        ))
+    else:
+        return _handle(requests.post(
+            _url("envio"),
+            json={
+                "idPedido": id_pedido,
+                "idEstadoEnvio": 1,
+                "numeroGuia": numero_guia,
+                "transportadora": transportadora,
+            },
+            headers=_headers(),
+        ))
+
+
+# ─────────────────────────────────────────────
 # USUARIOS ADMIN
 # ─────────────────────────────────────────────
 

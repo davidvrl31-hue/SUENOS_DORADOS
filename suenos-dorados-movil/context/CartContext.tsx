@@ -82,7 +82,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         try {
             const dbCart = await API.getCarrito(token);
 
-            // Obtener stock real de todas las variantes del carrito
+            // Obtener stock real de las variantes de BD
             const variantIds = dbCart
                 .map((i: any) => Number(i.idVariante))
                 .filter((id: number) => id > 0);
@@ -108,39 +108,38 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 stockDisponible: stockPorVariante[Number(i.idVariante)],
             }));
 
-            // BD tiene prioridad. Solo agregar ítems locales ausentes en BD (offline additions)
-            const merged = [...mappedDb];
-            for (const localItem of localItems) {
-                const localVariante = extractIdVariante(localItem);
-                const existsIdx = merged.findIndex((i) => {
-                    const dbVariante = extractIdVariante(i);
-                    return localVariante !== null && dbVariante === localVariante;
-                });
-                if (existsIdx === -1) {
-                    // Solo existe en local → agregar para subir a BD
-                    merged.push(localItem);
-                }
-                // Si existe en BD → BD tiene prioridad, no sobreescribir
+            // ── BD tiene ítems → BD manda, ignorar AsyncStorage ──────────
+            if (mappedDb.length > 0) {
+                setItems(mappedDb);
+                await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(mappedDb));
+                return;
             }
 
-            const payload = buildPayload(merged);
-            if (payload.length > 0) {
-                const finalDb = await API.guardarCarrito(token, payload);
-                const finalMapped: CartItem[] = finalDb.map((i: any) => ({
-                    id: `${i.id}-${i.idVariante}`,
-                    name: i.name,
-                    price: Number(i.price),
-                    qty: Number(i.quantity),
-                    image: i.image?.trim() || "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80",
-                    idVariante: Number(i.idVariante),
-                    stockDisponible: stockPorVariante[Number(i.idVariante)],
-                }));
-                setItems(finalMapped);
-            } else if (mappedDb.length > 0) {
-                setItems(mappedDb);
-            } else {
-                setItems(merged);
+            // ── BD vacía + hay ítems locales → primer login, subir a BD ──
+            if (localItems.length > 0) {
+                const payload = buildPayload(localItems);
+                if (payload.length > 0) {
+                    try {
+                        const finalDb = await API.guardarCarrito(token, payload);
+                        const finalMapped: CartItem[] = finalDb.map((i: any) => ({
+                            id: `${i.id}-${i.idVariante}`,
+                            name: i.name,
+                            price: Number(i.price),
+                            qty: Number(i.quantity),
+                            image: i.image?.trim() || "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80",
+                            idVariante: Number(i.idVariante),
+                            stockDisponible: stockPorVariante[Number(i.idVariante)],
+                        }));
+                        setItems(finalMapped);
+                        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(finalMapped));
+                        return;
+                    } catch { /* fallback silencioso */ }
+                }
             }
+
+            // ── BD vacía y sin ítems locales → carrito vacío ─────────────
+            setItems([]);
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([]));
         } catch {
             // fallback silencioso — mantener estado local
         }
@@ -169,6 +168,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }, []); // eslint-disable-line
 
     // ── Sincronizar con BD cuando hay sesión ──
+    // Lee AsyncStorage directamente para evitar closure stale sobre `items`
+    // (el state puede no estar hidratado aún cuando este efecto se dispara).
     useEffect(() => {
         if (!user?.token) return;
         AsyncStorage.getItem(STORAGE_KEY)
@@ -177,7 +178,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 await syncCart(user.token, localItems);
             })
             .catch(() => { });
-    }, [user?.token, syncCart]);
+    }, [user?.token]); // eslint-disable-line
 
     // ── Persistir localmente ──
     useEffect(() => {

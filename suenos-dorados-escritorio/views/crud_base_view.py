@@ -290,9 +290,9 @@ class BaseCrudView(ft.Container):
             picker = ft.DatePicker(
                 **picker_args,
                 bgcolor="#FFFFFF",
-                header_bgcolor=Tema.BG_SIDEBAR,
+                header_bgcolor=Tema.GOLD,
                 header_foreground_color="#FFFFFF",
-                selected_day_bgcolor=Tema.BG_SIDEBAR,
+                selected_day_bgcolor=Tema.GOLD,
                 selected_day_color="#FFFFFF",
                 today_border_color=Tema.GOLD,
             )
@@ -313,17 +313,17 @@ class BaseCrudView(ft.Container):
                 self.page.theme = ft.Theme()
             self.page.theme.date_picker_theme = ft.DatePickerTheme(
                 bgcolor="#FFFFFF",
-                header_bgcolor=Tema.BG_SIDEBAR,
+                header_bgcolor=Tema.GOLD,
                 header_foreground_color="#FFFFFF",
                 day_foreground_color={
                     ft.ControlState.SELECTED: "#FFFFFF",
                     ft.ControlState.DEFAULT: Tema.TEXT_PRIMARY,
                 },
                 day_bgcolor={
-                    ft.ControlState.SELECTED: Tema.BG_SIDEBAR,
+                    ft.ControlState.SELECTED: Tema.GOLD,
                     ft.ControlState.HOVERED: "#EEF3FB",
                 },
-                today_foreground_color=Tema.BG_SIDEBAR,
+                today_foreground_color=Tema.GOLD,
                 today_bgcolor="#FFFFFF",
                 today_border_side=ft.BorderSide(1, Tema.GOLD),
             )
@@ -479,7 +479,7 @@ class BaseCrudView(ft.Container):
                     controls=[
                         ft.Container(
                             padding=ft.Padding(24, 18, 18, 14),
-                            bgcolor=Tema.BG_SIDEBAR,
+                            bgcolor=Tema.GOLD_SOFT,
                             border_radius=ft.BorderRadius(16, 16, 0, 0),
                             content=ft.Row(
                                 alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
@@ -488,11 +488,11 @@ class BaseCrudView(ft.Container):
                                     ft.Row(spacing=12, controls=[
                                         ft.Container(width=42, height=42, border_radius=10, bgcolor=Tema.GOLD, alignment=ft.Alignment.CENTER, content=ft.Icon(ft.Icons.EDIT_DOCUMENT, color=Tema.TEXT_ON_GOLD, size=22)),
                                         ft.Column(spacing=2, controls=[
-                                            ft.Text(title, size=18, weight=ft.FontWeight.W_800, color=Tema.TEXT_ON_DARK),
-                                            ft.Text("Campos organizados para guardar rápido y sin perder contexto.", size=12, color=ft.Colors.with_opacity(0.78, Tema.TEXT_ON_DARK)),
+                                            ft.Text(title, size=18, weight=ft.FontWeight.W_800, color=Tema.TEXT_PRIMARY),
+                                            ft.Text("Campos organizados para guardar rápido y sin perder contexto.", size=12, color=Tema.TEXT_MUTED),
                                         ]),
                                     ]),
-                                    ft.IconButton(icon=ft.Icons.CLOSE_ROUNDED, icon_color=Tema.TEXT_ON_DARK, tooltip="Cerrar", on_click=lambda _: self._close_dialog(dialog)),
+                                    ft.IconButton(icon=ft.Icons.CLOSE_ROUNDED, icon_color=Tema.TEXT_SECONDARY, tooltip="Cerrar", on_click=lambda _: self._close_dialog(dialog)),
                                 ],
                             ),
                         ),

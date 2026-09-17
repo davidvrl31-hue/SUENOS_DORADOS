@@ -301,6 +301,16 @@ const CartScreen = memo(function CartScreen() {
                     <Text style={s.checkoutTxt}>Ir a pagar</Text>
                     <Feather name="arrow-right" size={16} color="#fff" />
                 </TouchableOpacity>
+                <TouchableOpacity
+                    style={s.clearBtn}
+                    onPress={() => clearCart()}
+                    activeOpacity={0.75}
+                    accessibilityRole="button"
+                    accessibilityLabel="Vaciar carrito"
+                >
+                    <Feather name="trash-2" size={15} color="#EF4444" />
+                    <Text style={s.clearTxt}>Vaciar carrito</Text>
+                </TouchableOpacity>
                 <Text style={s.boldBadge}>PSE · Nequi · Tarjeta · Bancolombia · Bold</Text>
             </View>
 
@@ -445,6 +455,18 @@ const s = StyleSheet.create({
     },
     checkoutTxt: { color: "#fff", fontSize: 16, fontWeight: "800" },
     boldBadge:   { textAlign: "center", fontSize: 10, color: COLORS.muted },
+    clearBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 6,
+        height: 40,
+        borderRadius: RADIUS.md,
+        borderWidth: 1.5,
+        borderColor: "#FECACA",
+        backgroundColor: "#FEF2F2",
+    },
+    clearTxt: { color: "#EF4444", fontSize: 14, fontWeight: "600" },
 
     // ── Modal overlay / sheet ──
     overlay: {

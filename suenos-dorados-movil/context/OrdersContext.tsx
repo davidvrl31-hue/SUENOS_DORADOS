@@ -15,7 +15,11 @@ export interface Order {
   date: string;
   items: CartItem[];
   total: number;
-  status: "pendiente" | "en_camino" | "entregado" | "cancelado" | "en_proceso" | "Despachado";
+  status: "pendiente" | "pagado" | "en_proceso" | "despachado" | "entregado" | "cancelado";
+  /** Número de guía — disponible cuando el pedido está Despachado */
+  numeroGuia?: string | null;
+  /** Transportadora — disponible cuando el pedido está Despachado */
+  transportadora?: string | null;
 }
 
 export interface Address {
@@ -136,18 +140,20 @@ export function OrdersProvider({ children }: { children: React.ReactNode }) {
     try {
       const data: any[] = await API.getPedidos(user.token);
       const mapped: Order[] = data.map((p) => ({
-        id:       `ORD-${p.idPedido}`,
-        idPedido: Number(p.idPedido),
-        date:     new Date(p.fechaPedido).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" }),
+        id:       `ORD-${p.idPedido ?? p.id_pedido}`,
+        idPedido: Number(p.idPedido ?? p.id_pedido),
+        date:     new Date(p.fechaPedido ?? p.fecha_pedido).toLocaleDateString("es-CO", { day: "numeric", month: "long", year: "numeric" }),
         items:    p.detalles?.map((d: any) => ({
-          id:    String(d.idVariante),
-          name:  d.nombreProducto ?? `Variante #${d.idVariante}`,
-          price: Number(d.precioUnitario),
-          qty:   d.cantidad,
+          id:    String(d.idVariante ?? d.id_variante),
+          name:  d.nombreProducto ?? d.nombre_producto ?? `Variante #${d.idVariante ?? d.id_variante}`,
+          price: Number(d.precioUnitario ?? d.precio_unitario),
+          qty:   Number(d.cantidad),
           image: "",
         })) ?? [],
-        total:  Number(p.total),
-        status: mapEstado(p.idEstadoPedido),
+        total:          Number(p.total),
+        status:         mapEstado(Number(p.idEstadoPedido ?? p.id_estado_pedido)),
+        numeroGuia:     p.numeroGuia     ?? p.numero_guia     ?? null,
+        transportadora: p.transportadora ?? null,
       }));
       setOrders(mapped);
     } catch {}
@@ -269,12 +275,12 @@ export function useOrders() {
 
 function mapEstado(id: number): Order["status"] {
   switch (id) {
-    case 1: return "pendiente";
-    case 2: return "pendiente";
-    case 3: return "en_proceso";
-    case 4: return "en_proceso";
-    case 5: return "entregado";
-    case 6: return "cancelado";
+    case 1: return "pendiente";   // Pendiente
+    case 2: return "pagado";      // Pagado
+    case 3: return "en_proceso";  // En preparación
+    case 4: return "despachado";  // Despachado
+    case 5: return "entregado";   // Entregado
+    case 6: return "cancelado";   // Cancelado
     default: return "pendiente";
   }
 }

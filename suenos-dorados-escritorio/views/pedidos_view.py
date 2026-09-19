@@ -5,6 +5,7 @@ import flet as ft
 from sqlalchemy import text
 from sqlalchemy.orm import joinedload
 
+import api_client
 from controllers.pedidos_controller import PedidosController
 from controllers.ventas_controller import SalesController
 from database import SessionLocal
@@ -280,22 +281,75 @@ class PedidosView(BaseCrudView):
         return [ft.dropdown.Option(key=str(row["id_estado_pedido"]), text=row["descripcion_estado"]) for row in rows]
 
     def _order_state_menu(self, record):
-        current_state_id = str(record.get("id_estado_pedido") or "")
+        current_state_id = int(record.get("id_estado_pedido") or 0)
+        current_desc     = record.get("estado") or "Sin estado"
+
+        # ── Máquina de estados: IDs reales BD ────────────────────────────────
+        # 1=Pendiente 2=Pagado 3=En preparación 4=Despachado 5=Entregado 6=Cancelado
+        SIGUIENTE = {1: 2, 2: 3, 3: 4, 4: 5}
+        NOMBRES   = {1: "Pendiente", 2: "Pagado", 3: "En preparación",
+                     4: "Despachado", 5: "Entregado", 6: "Cancelado"}
+
+        # Estados finales: no se puede cambiar
+        es_final = current_state_id in (5, 6)
+
+        # Construir opciones permitidas
+        opciones_permitidas = []
+        if not es_final:
+            siguiente = SIGUIENTE.get(current_state_id)
+            if siguiente:
+                opciones_permitidas.append((siguiente, NOMBRES[siguiente]))
+            # Cancelar solo desde 1, 2 o 3
+            if current_state_id in (1, 2, 3):
+                opciones_permitidas.append((6, "Cancelado"))
+
+        # Sin opciones → botón bloqueado
+        if not opciones_permitidas:
+            return ft.Container(
+                width=152,
+                border_radius=9,
+                bgcolor=self._order_state_bg(current_desc),
+                border=ft.Border(
+                    left=ft.BorderSide(1, self._order_state_border(current_desc)),
+                    right=ft.BorderSide(1, self._order_state_border(current_desc)),
+                    top=ft.BorderSide(1, self._order_state_border(current_desc)),
+                    bottom=ft.BorderSide(1, self._order_state_border(current_desc)),
+                ),
+                padding=ft.Padding(10, 7, 8, 7),
+                tooltip="Estado final — no se puede cambiar",
+                content=ft.Row(
+                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                    controls=[
+                        ft.Text(current_desc, size=12, color=self._order_state_color(current_desc),
+                                weight=ft.FontWeight.W_800, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                        ft.Icon(ft.Icons.LOCK_ROUNDED, size=14, color=self._order_state_color(current_desc)),
+                    ],
+                ),
+            )
+
+        # Construir ítems del menú solo con los estados permitidos
         items = []
-        for option in self._order_state_options():
+        for id_estado, desc in opciones_permitidas:
+            color = Tema.ERROR if id_estado == 6 else Tema.INFO
             items.append(
                 ft.PopupMenuItem(
                     content=ft.Row(
                         spacing=8,
                         controls=[
-                            ft.Icon(ft.Icons.CHECK_ROUNDED if option.key == current_state_id else ft.Icons.CIRCLE_OUTLINED, color=Tema.GOLD if option.key == current_state_id else Tema.TEXT_MUTED, size=16),
-                            ft.Text(option.text, size=12, color=Tema.TEXT_PRIMARY, weight=ft.FontWeight.W_700 if option.key == current_state_id else ft.FontWeight.W_500),
+                            ft.Icon(
+                                ft.Icons.CANCEL_ROUNDED if id_estado == 6 else ft.Icons.ARROW_FORWARD_ROUNDED,
+                                color=color,
+                                size=16,
+                            ),
+                            ft.Text(desc, size=12, color=color, weight=ft.FontWeight.W_700),
                         ],
                     ),
                     height=38,
-                    on_click=lambda _, rec=record, state_id=option.key, state_text=option.text: self._confirm_order_state_change(rec, state_id, state_text),
+                    on_click=lambda _, rec=record, sid=str(id_estado), sdesc=desc: self._confirm_order_state_change(rec, sid, sdesc),
                 )
             )
+
         return ft.PopupMenuButton(
             menu_position=ft.PopupMenuPosition.UNDER,
             bgcolor="#FFFFFF",
@@ -304,32 +358,36 @@ class PedidosView(BaseCrudView):
             content=ft.Container(
                 width=152,
                 border_radius=9,
-                bgcolor=self._order_state_bg(record.get("estado")),
+                bgcolor=self._order_state_bg(current_desc),
                 border=ft.Border(
-                    left=ft.BorderSide(1, self._order_state_border(record.get("estado"))),
-                    right=ft.BorderSide(1, self._order_state_border(record.get("estado"))),
-                    top=ft.BorderSide(1, self._order_state_border(record.get("estado"))),
-                    bottom=ft.BorderSide(1, self._order_state_border(record.get("estado"))),
+                    left=ft.BorderSide(1, self._order_state_border(current_desc)),
+                    right=ft.BorderSide(1, self._order_state_border(current_desc)),
+                    top=ft.BorderSide(1, self._order_state_border(current_desc)),
+                    bottom=ft.BorderSide(1, self._order_state_border(current_desc)),
                 ),
                 padding=ft.Padding(10, 7, 8, 7),
                 content=ft.Row(
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     vertical_alignment=ft.CrossAxisAlignment.CENTER,
                     controls=[
-                        ft.Text(record.get("estado") or "Sin estado", size=12, color=self._order_state_color(record.get("estado")), weight=ft.FontWeight.W_800, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
-                        ft.Icon(ft.Icons.KEYBOARD_ARROW_DOWN_ROUNDED, size=16, color=self._order_state_color(record.get("estado"))),
+                        ft.Text(current_desc, size=12, color=self._order_state_color(current_desc),
+                                weight=ft.FontWeight.W_800, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                        ft.Icon(ft.Icons.KEYBOARD_ARROW_DOWN_ROUNDED, size=16,
+                                color=self._order_state_color(current_desc)),
                     ],
                 ),
             ),
         )
 
     def _order_state_color(self, state):
-        if state in ("Cancelado", "Reembolsado"):
+        if state == "Cancelado":
             return Tema.ERROR
         if state in ("Entregado", "Pagado"):
             return Tema.SUCCESS
-        if state in ("Despachado",):
+        if state == "Despachado":
             return Tema.INFO
+        if state == "En preparación":
+            return Tema.GOLD_DARK
         return Tema.GOLD_DARK
 
     def _order_state_bg(self, state):
@@ -402,29 +460,12 @@ class PedidosView(BaseCrudView):
             return
         order_id = record.get("id_pedido")
         try:
-            db = SessionLocal()
-            try:
-                description = db.execute(
-                    text("SELECT descripcion_estado FROM estado_pedido WHERE id_estado_pedido = :id"),
-                    {"id": int(state_id)},
-                ).scalar()
-                if not description:
-                    raise ValueError("Estado no encontrado")
-                if description in ("Pagado", "Despachado"):
-                    SalesController(db).approve_payment(order_id, estado_destino=description)
-                else:
-                    db.execute(
-                        text("UPDATE pedidos SET id_estado_pedido = :state_id WHERE id_pedido = :order_id"),
-                        {"state_id": int(state_id), "order_id": order_id},
-                    )
-                    db.commit()
-            finally:
-                db.close()
+            api_client.cambiar_estado_pedido(int(order_id), int(state_id))
             self._build_crud_content()
             self._snack("Estado del pedido actualizado", Tema.SUCCESS)
         except Exception as exc:
             self._build_crud_content()
-            self._show_message("Error al cambiar estado", str(exc), Tema.ERROR)
+            self._show_message("No se pudo cambiar el estado", str(exc), Tema.ERROR)
 
     def _build_form_rows(self):
         if self.current_config["table"] != "pedidos":

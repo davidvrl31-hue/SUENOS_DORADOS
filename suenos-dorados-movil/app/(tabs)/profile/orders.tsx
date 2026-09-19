@@ -129,6 +129,25 @@ export default function Orders() {
                                 <Text style={s.ivaLabel}>{fmt(Math.round(order.total - order.total / 1.19))}</Text>
                             </View>
 
+                            {/* Guía de envío — solo visible cuando está Despachado */}
+                            {order.status === "despachado" && (order.numeroGuia || order.transportadora) && (
+                                <View style={s.guiaBox}>
+                                    <Text style={s.guiaTitle}>🚚 Información de envío</Text>
+                                    {order.transportadora ? (
+                                        <View style={s.guiaRow}>
+                                            <Text style={s.guiaLabel}>Transportadora</Text>
+                                            <Text style={s.guiaValue}>{order.transportadora}</Text>
+                                        </View>
+                                    ) : null}
+                                    {order.numeroGuia ? (
+                                        <View style={s.guiaRow}>
+                                            <Text style={s.guiaLabel}>Número de guía</Text>
+                                            <Text style={[s.guiaValue, s.guiaMono]}>{order.numeroGuia}</Text>
+                                        </View>
+                                    ) : null}
+                                </View>
+                            )}
+
                             {/* Botón factura */}
                             <TouchableOpacity
                                 style={[s.facturaBtn, cargando && s.facturaBtnDisabled]}
@@ -183,4 +202,18 @@ const s = StyleSheet.create({
     emptySubtitle: { fontSize: 14, color: COLORS.muted, textAlign: "center", paddingHorizontal: 40, marginBottom: 24 },
     emptyButton:   { backgroundColor: COLORS.orange, paddingHorizontal: 32, paddingVertical: 14, borderRadius: 14 },
     emptyButtonText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+    guiaBox: {
+        marginTop: 10,
+        backgroundColor: "#EFF6FF",
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: "#BFDBFE",
+        padding: 10,
+        gap: 6,
+    },
+    guiaTitle: { fontSize: 12, fontWeight: "700", color: "#1D4ED8", marginBottom: 2 },
+    guiaRow:   { flexDirection: "row" as const, justifyContent: "space-between" as const, alignItems: "center" as const },
+    guiaLabel: { fontSize: 12, color: "#6B7280" },
+    guiaValue: { fontSize: 12, fontWeight: "600" as const, color: "#1F2937" },
+    guiaMono:  { fontFamily: "monospace" },
 });

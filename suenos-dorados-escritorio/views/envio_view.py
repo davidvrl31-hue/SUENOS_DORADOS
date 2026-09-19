@@ -271,11 +271,13 @@ class EnvioView(ft.Container):
                 id_pedido = p.get("idPedido") or p.get("id_pedido")
                 envio = api_client.get_envio_por_pedido(id_pedido)
                 if envio:
-                    p["numeroGuia"]    = envio.get("numeroGuia") or envio.get("numero_guia") or ""
+                    p["numeroGuia"]     = envio.get("numeroGuia") or envio.get("numero_guia") or ""
                     p["transportadora"] = envio.get("transportadora") or ""
                 else:
-                    p["numeroGuia"]    = ""
+                    p["numeroGuia"]     = ""
                     p["transportadora"] = ""
+                # Estado del pedido — se usa para validar si se puede registrar guía
+                p["_id_estado"] = int(p.get("idEstadoPedido") or p.get("id_estado_pedido") or 0)
 
             self._build_table()
         except Exception as exc:
@@ -303,6 +305,30 @@ class EnvioView(ft.Container):
             guia       = p.get("numeroGuia") or ""
             transport  = p.get("transportadora") or ""
             tiene_guia = bool(guia)
+            id_estado  = p.get("_id_estado", 0)
+            es_despachado = id_estado == 4  # Solo Despachado puede registrar guía
+
+            # Celda de acción: habilitada solo si está Despachado
+            if es_despachado:
+                accion_cell = ft.DataCell(
+                    ft.TextButton(
+                        content=ft.Row(spacing=4, controls=[
+                            ft.Icon(ft.Icons.EDIT_ROUNDED, size=14, color=Tema.GOLD),
+                            ft.Text("Registrar guía", size=12, color=Tema.GOLD, weight=ft.FontWeight.W_600),
+                        ]),
+                        on_click=lambda _, ped=p: self._seleccionar(ped),
+                    )
+                )
+            else:
+                accion_cell = ft.DataCell(
+                    ft.Container(
+                        tooltip="Solo disponible en estado Despachado",
+                        content=ft.Row(spacing=4, controls=[
+                            ft.Icon(ft.Icons.LOCK_ROUNDED, size=14, color=Tema.BORDER),
+                            ft.Text("No disponible", size=12, color=Tema.BORDER),
+                        ]),
+                    )
+                )
 
             rows.append(ft.DataRow(
                 color=ft.Colors.with_opacity(0.04, Tema.GOLD) if tiene_guia else None,
@@ -326,15 +352,7 @@ class EnvioView(ft.Container):
                         ])
                     ),
                     ft.DataCell(ft.Text(transport if transport else "—", size=12, color=Tema.TEXT_PRIMARY if transport else Tema.TEXT_MUTED)),
-                    ft.DataCell(
-                        ft.TextButton(
-                            content=ft.Row(spacing=4, controls=[
-                                ft.Icon(ft.Icons.EDIT_ROUNDED, size=14, color=Tema.GOLD),
-                                ft.Text("Registrar guía", size=12, color=Tema.GOLD, weight=ft.FontWeight.W_600),
-                            ]),
-                            on_click=lambda _, ped=p: self._seleccionar(ped),
-                        )
-                    ),
+                    accion_cell,
                 ],
             ))
 
@@ -359,7 +377,8 @@ class EnvioView(ft.Container):
 
     def _seleccionar(self, pedido: dict):
         self._pedido_sel  = pedido
-        id_pedido = pedido.get("idPedido") or pedido.get("id_pedido")
+        id_pedido  = pedido.get("idPedido") or pedido.get("id_pedido")
+        id_estado  = pedido.get("_id_estado", 0)
         self._envio_actual = api_client.get_envio_por_pedido(id_pedido)
 
         guia_existente      = ""
@@ -371,7 +390,10 @@ class EnvioView(ft.Container):
         self._guia_field.value           = guia_existente
         self._transportadora_field.value = transport_existente
         self._feedback.visible           = False
-        self._save_btn.disabled          = False
+
+        # Solo habilitar guardado si estado es Despachado (4)
+        es_despachado = id_estado == 4
+        self._save_btn.disabled = not es_despachado
 
         cliente  = pedido.get("nombreUsuario") or pedido.get("nombre_usuario") or "—"
         apellido = pedido.get("apellidoUsuario") or pedido.get("apellido_usuario") or ""

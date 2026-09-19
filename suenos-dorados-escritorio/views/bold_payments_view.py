@@ -5,10 +5,23 @@ import flet as ft
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
+import api_client
 from database import SessionLocal
 from models.ventas_model import Pedido
 from services.bold_payments_service import process_bold_payment
 from utils.theme import Tema
+
+
+# Estados disponibles para cambiar manualmente
+ESTADOS_PEDIDO = [
+    (1, "Pendiente"),
+    (2, "Pagado"),
+    (3, "En preparación"),
+    (4, "Despachado"),
+    (5, "En camino"),
+    (6, "Entregado"),
+    (7, "Cancelado"),
+]
 
 
 def _border(color):
@@ -337,6 +350,135 @@ class BoldPaymentsView(ft.Container):
             self.load_orders()
         except Exception as exc:
             self._snack(f"Error simulando pago: {exc}", Tema.ERROR)
+
+    def _estado_dropdown(self, order_id: int, current_state_id: int):
+        """Botón que abre un menú emergente con los estados disponibles."""
+        estado_actual = next((d for i, d in ESTADOS_PEDIDO if i == current_state_id), "—")
+
+        items = []
+        for id_estado, desc in ESTADOS_PEDIDO:
+            is_current = id_estado == current_state_id
+            items.append(
+                ft.PopupMenuItem(
+                    content=ft.Row(
+                        spacing=8,
+                        controls=[
+                            ft.Icon(
+                                ft.Icons.CHECK_ROUNDED if is_current else ft.Icons.CIRCLE_OUTLINED,
+                                size=14,
+                                color=Tema.GOLD if is_current else Tema.BORDER,
+                            ),
+                            ft.Text(
+                                desc,
+                                size=13,
+                                color=Tema.GOLD if is_current else Tema.TEXT_PRIMARY,
+                                weight=ft.FontWeight.W_700 if is_current else ft.FontWeight.W_400,
+                            ),
+                        ],
+                    ),
+                    on_click=lambda _, oid=order_id, sid=current_state_id, nid=id_estado: self._confirmar_cambio_estado(oid, sid, nid),
+                )
+            )
+
+        return ft.PopupMenuButton(
+            content=ft.Container(
+                bgcolor=Tema.BG_SECONDARY,
+                border_radius=8,
+                padding=ft.Padding(10, 5, 10, 5),
+                border=ft.Border(
+                    left=ft.BorderSide(1, Tema.BORDER),
+                    right=ft.BorderSide(1, Tema.BORDER),
+                    top=ft.BorderSide(1, Tema.BORDER),
+                    bottom=ft.BorderSide(1, Tema.BORDER),
+                ),
+                content=ft.Row(
+                    spacing=6,
+                    tight=True,
+                    controls=[
+                        ft.Text(estado_actual, size=12, color=Tema.TEXT_PRIMARY, weight=ft.FontWeight.W_600),
+                        ft.Icon(ft.Icons.ARROW_DROP_DOWN_ROUNDED, size=16, color=Tema.TEXT_MUTED),
+                    ],
+                ),
+            ),
+            items=items,
+        )
+
+    def _confirmar_cambio_estado(self, order_id: int, estado_actual_id: int, nuevo_estado_id: int):
+        """Muestra diálogo de confirmación antes de cambiar el estado."""
+        if nuevo_estado_id == estado_actual_id:
+            return
+
+        estado_actual  = next((d for i, d in ESTADOS_PEDIDO if i == estado_actual_id),  "Desconocido")
+        nuevo_estado   = next((d for i, d in ESTADOS_PEDIDO if i == nuevo_estado_id),   "Desconocido")
+
+        def confirmar(_):
+            dlg.open = False
+            try:
+                self.page.update()
+            except RuntimeError:
+                pass
+            self._aplicar_cambio_estado(order_id, nuevo_estado_id)
+
+        def cancelar(_):
+            dlg.open = False
+            # Recargar filas para revertir el dropdown visualmente
+            self._build_rows()
+            try:
+                self.update()
+            except RuntimeError:
+                pass
+
+        dlg = ft.AlertDialog(
+            modal=True,
+            title=ft.Text("Confirmar cambio de estado", weight=ft.FontWeight.W_800, color=Tema.TEXT_PRIMARY),
+            content=ft.Column(spacing=10, tight=True, controls=[
+                ft.Text(f"Pedido #{order_id}", size=13, weight=ft.FontWeight.W_700, color=Tema.TEXT_SECONDARY),
+                ft.Row(spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER, controls=[
+                    self._state_badge(estado_actual_id, estado_actual),
+                    ft.Icon(ft.Icons.ARROW_FORWARD_ROUNDED, size=16, color=Tema.TEXT_MUTED),
+                    self._state_badge(nuevo_estado_id, nuevo_estado),
+                ]),
+                ft.Text("¿Deseas cambiar el estado de este pedido?", size=12, color=Tema.TEXT_MUTED),
+            ]),
+            actions=[
+                ft.TextButton(
+                    "Cancelar",
+                    on_click=cancelar,
+                    style=ft.ButtonStyle(color=Tema.TEXT_MUTED),
+                ),
+                ft.FilledButton(
+                    "Sí, cambiar",
+                    on_click=confirmar,
+                    style=ft.ButtonStyle(
+                        bgcolor={ft.ControlState.DEFAULT: Tema.GOLD, ft.ControlState.HOVERED: Tema.GOLD_DARK},
+                        color=ft.Colors.WHITE,
+                        shape=ft.RoundedRectangleBorder(radius=8),
+                    ),
+                ),
+            ],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+
+        self.page.dialog = dlg
+        dlg.open = True
+        try:
+            self.page.update()
+        except RuntimeError:
+            pass
+
+    def _aplicar_cambio_estado(self, order_id: int, nuevo_estado_id: int):
+        """Llama a la API para cambiar el estado y recarga la tabla."""
+        try:
+            api_client.cambiar_estado_pedido(order_id, nuevo_estado_id)
+            self._snack(f"Estado del pedido #{order_id} actualizado correctamente.", Tema.SUCCESS)
+            self.load_orders()
+        except Exception as exc:
+            self._snack(f"Error al cambiar estado: {exc}", Tema.ERROR)
+            self._build_rows()
+            try:
+                self.update()
+            except RuntimeError:
+                pass
 
     def _process_bold_payment(self, payload):
         db = SessionLocal()

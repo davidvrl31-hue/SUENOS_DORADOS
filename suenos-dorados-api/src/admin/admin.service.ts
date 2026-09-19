@@ -126,6 +126,37 @@ export class AdminService {
   async cambiarEstadoPedido(id: number, idEstadoPedido: number) {
     const pedido = await this.pedidosRepo.findOne({ where: { idPedido: id } });
     if (!pedido) throw new NotFoundException(`Pedido ${id} no encontrado`);
+
+    // ── Máquina de estados: flujo unidireccional ──────────────────────────────
+    // IDs reales en BD: 1=Pendiente 2=Pagado 3=En preparación 4=Despachado
+    //                   5=Entregado 6=Cancelado
+    const estadoActual = pedido.idEstadoPedido;
+
+    // Estados finales — no se puede cambiar
+    if (estadoActual === 5 || estadoActual === 6) {
+      throw new BadRequestException(
+        `El pedido está en estado final (${estadoActual === 5 ? 'Entregado' : 'Cancelado'}) y no puede cambiar de estado.`,
+      );
+    }
+
+    // Flujo normal permitido: 1→2→3→4→5
+    const SIGUIENTE: Record<number, number> = { 1: 2, 2: 3, 3: 4, 4: 5 };
+    const siguientePermitido = SIGUIENTE[estadoActual];
+
+    // Cancelado (6) permitido solo desde Pendiente(1), Pagado(2) o En preparación(3)
+    const puedeCancel = [1, 2, 3].includes(estadoActual) && idEstadoPedido === 6;
+
+    const esAvanceLegal = idEstadoPedido === siguientePermitido;
+
+    if (!esAvanceLegal && !puedeCancel) {
+      throw new BadRequestException(
+        `Transición de estado no permitida. Desde el estado actual (${estadoActual}) ` +
+        `solo se puede avanzar a ${siguientePermitido ?? '—'}` +
+        ([1, 2, 3].includes(estadoActual) ? ' o Cancelar (6).' : '.'),
+      );
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     await this.pedidosRepo.update(id, { idEstadoPedido });
 
     // Obtener descripción del estado para el evento WS

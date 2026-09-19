@@ -48,9 +48,13 @@ export interface OrderItem {
 export interface Order {
   id: string;
   date: string;
-  status: "entregado" | "en camino" | "pendiente" | "en_proceso" | "cancelado";
+  status: "pendiente" | "pagado" | "en_proceso" | "despachado" | "entregado" | "cancelado";
   items: OrderItem[];
   total: number;
+  /** Número de guía — disponible cuando el pedido está Despachado */
+  numeroGuia?: string | null;
+  /** Transportadora — disponible cuando el pedido está Despachado */
+  transportadora?: string | null;
 }
 
 export interface User {
@@ -575,7 +579,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           price:    Number(d.precioUnitario ?? d.precio_unitario),
           quantity: Number(d.cantidad),
         })),
-        total: Number(p.total),
+        total:          Number(p.total),
+        numeroGuia:     p.numeroGuia     ?? p.numero_guia     ?? null,
+        transportadora: p.transportadora ?? null,
       }));
       setOrders(mapped);
     } catch { /* silencioso */ }
@@ -622,13 +628,12 @@ export function useApp() {
 // ── Helper: mapear id de estado a string legible ──────────────────────────────
 function mapEstado(id: number): Order["status"] {
   switch (id) {
-    case 1: return "pendiente";   // Pendiente
-    case 2: return "pendiente";   // Pagado → sigue en proceso para el cliente
-    case 3: return "en_proceso";  // En preparación
-    case 4: return "en_proceso";  // Despachado (en camino)
-    case 5: return "en camino";   // En camino
-    case 6: return "entregado";   // Entregado
-    case 7: return "cancelado";   // Cancelado
+    case 1: return "pendiente";    // Pendiente
+    case 2: return "pagado";       // Pagado
+    case 3: return "en_proceso";   // En preparación
+    case 4: return "despachado";   // Despachado
+    case 5: return "entregado";    // Entregado
+    case 6: return "cancelado";    // Cancelado
     default: return "pendiente";
   }
 }

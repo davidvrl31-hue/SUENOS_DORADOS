@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Envio } from './entities/envio.entity';
@@ -34,6 +34,21 @@ export class EnvioService {
     const existe = await this.repo.findOne({ where: { idPedido: dto.idPedido } });
     if (existe) throw new ConflictException(`Ya existe un envío para el pedido ${dto.idPedido}`);
 
+    // ── Guardia: solo se puede registrar guía si el pedido está Despachado ──
+    if (dto.numeroGuia || dto.transportadora) {
+      const estadoRows = await this.dataSource.query(
+        `SELECT id_estado_pedido FROM pedidos WHERE id_pedido = $1`,
+        [dto.idPedido],
+      );
+      const idEstado = estadoRows[0]?.id_estado_pedido;
+      if (idEstado !== 4) {
+        throw new BadRequestException(
+          'Solo se puede registrar la guía cuando el pedido está en estado Despachado (4).',
+        );
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     const envio = this.repo.create({
       idPedido: dto.idPedido,
       idEstadoEnvio: dto.idEstadoEnvio,
@@ -59,6 +74,21 @@ export class EnvioService {
 
   async actualizar(id: number, dto: UpdateEnvioDto): Promise<Envio> {
     const envio = await this.findOne(id);
+
+    // ── Guardia: editar guía solo en estado Despachado ───────────────────────
+    if (dto.numeroGuia !== undefined || dto.transportadora !== undefined) {
+      const estadoRows = await this.dataSource.query(
+        `SELECT id_estado_pedido FROM pedidos WHERE id_pedido = $1`,
+        [envio.idPedido],
+      );
+      const idEstado = estadoRows[0]?.id_estado_pedido;
+      if (idEstado !== 4) {
+        throw new BadRequestException(
+          'Solo se puede editar la guía cuando el pedido está en estado Despachado (4).',
+        );
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
     if (dto.idEstadoEnvio !== undefined) envio.idEstadoEnvio = dto.idEstadoEnvio;
     if (dto.numeroGuia !== undefined) envio.numeroGuia = dto.numeroGuia ?? null;
     if (dto.transportadora !== undefined) envio.transportadora = dto.transportadora ?? null;

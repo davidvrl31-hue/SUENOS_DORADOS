@@ -25,10 +25,12 @@ export function fmtDate(iso: string): string {
 /** Etiqueta de estado del pedido */
 export function orderStatusLabel(status: string): string {
     const labels: Record<string, string> = {
-        pendiente: "Pendiente",
-        en_camino: "En camino",
-        entregado: "Entregado",
-        cancelado: "Cancelado",
+        pendiente:  "Pendiente",
+        pagado:     "Pagado",
+        en_proceso: "En preparación",
+        despachado: "Despachado",
+        entregado:  "Entregado",
+        cancelado:  "Cancelado",
     };
     return labels[status] ?? status;
 }
@@ -36,10 +38,12 @@ export function orderStatusLabel(status: string): string {
 /** Color de badge del estado */
 export function orderStatusColor(status: string): string {
     const colors: Record<string, string> = {
-        pendiente: "#f5a742",
-        en_camino: "#3b82f6",
-        entregado: "#22c55e",
-        cancelado: "#ef4444",
+        pendiente:  "#f5a742",
+        pagado:     "#0d9488",
+        en_proceso: "#f97316",
+        despachado: "#3b82f6",
+        entregado:  "#22c55e",
+        cancelado:  "#ef4444",
     };
     return colors[status] ?? "#b0a090";
 }

@@ -22,6 +22,10 @@ export default function LoginPage() {
       setError("Por favor completa todos los campos");
       return;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Ingresa un correo electrónico válido");
+      return;
+    }
     setLoading(true);
     setError("");
     try {

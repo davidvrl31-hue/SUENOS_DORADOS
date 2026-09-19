@@ -26,6 +26,7 @@ const INITIAL_FORM: FormData = { email: "", password: "" };
 const validate = (data: FormData): Errors => {
   const errors: Errors = {};
   if (!data.email.trim()) errors.email = "Ingresá tu correo";
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email.trim())) errors.email = "Ingresá un correo válido";
   if (!data.password.trim()) errors.password = "Ingresá tu contraseña";
   return errors;
 };

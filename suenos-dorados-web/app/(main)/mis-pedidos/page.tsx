@@ -6,19 +6,21 @@ import { useApp } from "@/app/context/AppContext";
 import { SueñosDoradosAPI } from "@/src/services/api.service";
 
 const statusColors: Record<string, string> = {
-  entregado: "bg-green-100 text-green-700",
-  "en camino": "bg-blue-100 text-blue-700",
-  pendiente: "bg-yellow-100 text-yellow-700",
+  entregado:  "bg-green-100 text-green-700",
+  despachado: "bg-blue-100 text-blue-700",
+  pagado:     "bg-teal-100 text-teal-700",
+  pendiente:  "bg-yellow-100 text-yellow-700",
   en_proceso: "bg-orange-100 text-orange-700",
-  cancelado: "bg-red-100 text-red-700",
+  cancelado:  "bg-red-100 text-red-700",
 };
 
 const statusLabel: Record<string, string> = {
-  entregado: "Entregado",
-  "en camino": "En camino",
-  pendiente: "Pendiente",
-  en_proceso: "En proceso",
-  cancelado: "Cancelado",
+  entregado:  "Entregado",
+  despachado: "Despachado",
+  pagado:     "Pagado",
+  pendiente:  "Pendiente",
+  en_proceso: "En preparación",
+  cancelado:  "Cancelado",
 };
 
 export default function MisPedidosPage() {
@@ -136,6 +138,27 @@ export default function MisPedidosPage() {
               <span>IVA incluido (19%)</span>
               <span>${Math.round(order.total - order.total / 1.19).toLocaleString("es-CO")}</span>
             </div>
+
+            {/* Guía de envío — solo visible cuando está Despachado */}
+            {order.status === "despachado" && (order.numeroGuia || order.transportadora) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 space-y-1">
+                <p className="text-xs font-bold text-blue-700 uppercase tracking-wide flex items-center gap-1">
+                  🚚 Información de envío
+                </p>
+                {order.transportadora && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Transportadora</span>
+                    <span className="font-semibold text-gray-800">{order.transportadora}</span>
+                  </div>
+                )}
+                {order.numeroGuia && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-500">Número de guía</span>
+                    <span className="font-mono font-semibold text-gray-800">{order.numeroGuia}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Botón descargar factura */}
             <button

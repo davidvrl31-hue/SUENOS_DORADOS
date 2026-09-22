@@ -13,33 +13,43 @@ export default async function HomePage() {
     SueñosDoradosAPI.getVariantes(),
   ]);
 
-  // Mapear productos con precio real desde variantes
-  const products: Product[] = apiProductos
-    .filter((p) => p.estadoProducto)
-    .map((p) => {
-      const cat      = apiCategorias.find((c) => c.idCategoria === p.idCategoria);
-      const varsProd = apiVariantes.filter((v) => v.idProducto === p.idProducto && v.estado);
-      // Variante con stock > 0 o la primera disponible
-      const variante   = varsProd.find((v) => v.stock > 0) ?? varsProd[0];
-      const stockTotal = varsProd.reduce((s, v) => s + v.stock, 0);
+  // Mapear productos con precio real desde variantes + descuentos activos
+  const products: Product[] = await Promise.all(
+    apiProductos
+      .filter((p) => p.estadoProducto)
+      .map(async (p) => {
+        const cat      = apiCategorias.find((c) => c.idCategoria === p.idCategoria);
+        const varsProd = apiVariantes.filter((v) => v.idProducto === p.idProducto && v.estado);
+        const variante   = varsProd.find((v) => v.stock > 0) ?? varsProd[0];
+        const stockTotal = varsProd.reduce((s, v) => s + v.stock, 0);
+        const precioBase = variante ? Number(variante.precio) : 0;
 
-      return {
-        id:          p.idProducto,
-        idVariante:  variante?.idVariante,
-        name:        p.nombreProducto,
-        price:       variante ? Number(variante.precio) : 0,
-        image:       p.imagenUrl || PLACEHOLDER_IMAGE,
-        category:    cat?.nombreCategoria ?? "Sin categoría",
-        slug:        p.slug,
-        descripcion: p.descripcionProducto ?? undefined,
-        stock:       stockTotal,
-        badge:       stockTotal === 0 ? "Agotado" : undefined,
-      };
-    });
+        // Cargar descuento activo si existe
+        const descuento = await SueñosDoradosAPI.getDescuentoProducto(p.idProducto);
+        const precioConDescuento = descuento
+          ? Math.round(precioBase * (1 - descuento.porcentaje / 100))
+          : precioBase;
+
+        return {
+          id:            p.idProducto,
+          idVariante:    variante?.idVariante,
+          name:          p.nombreProducto,
+          price:         precioConDescuento,
+          originalPrice: descuento ? precioBase : undefined,
+          image:         p.imagenUrl || PLACEHOLDER_IMAGE,
+          category:      cat?.nombreCategoria ?? "Sin categoría",
+          slug:          p.slug,
+          descripcion:   p.descripcionProducto ?? undefined,
+          stock:         stockTotal,
+          badge:         stockTotal === 0 ? "Agotado" : undefined,
+          // Guardar el código del cupón para aplicarlo automáticamente en checkout
+          codigoCupon:   descuento?.codigo,
+        };
+      })
+  );
 
   const categoryNames = ["Todo", ...apiCategorias.map((c) => c.nombreCategoria)];
 
-  // Estado vacío manejado en el componente cliente
   return <HomeClient products={products} categories={categoryNames} />;
 }
 

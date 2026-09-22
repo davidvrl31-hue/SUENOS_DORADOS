@@ -136,10 +136,13 @@ def _snake_to_camel(name: str) -> str:
 
 
 def _serialize_value(v):
-    """Convierte tipos no serializables a JSON (Decimal → float, etc.)."""
+    """Convierte tipos no serializables a JSON (Decimal → float, date → str, etc.)."""
+    import datetime
     from decimal import Decimal
     if isinstance(v, Decimal):
         return float(v)
+    if isinstance(v, (datetime.date, datetime.datetime)):
+        return v.isoformat()
     return v
 
 

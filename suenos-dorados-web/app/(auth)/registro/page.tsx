@@ -93,8 +93,17 @@ export default function RegistroPage() {
     if (!form.apellido.trim()) e.apellido = "El apellido es requerido";
     if (!form.email.trim()) e.email = "El correo es requerido";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = "Correo inválido";
-    if (!form.password) e.password = "La contraseña es requerida";
-    else if (form.password.length < 6) e.password = "Mínimo 6 caracteres";
+    if (!form.password) {
+      e.password = "La contraseña es requerida";
+    } else if (form.password.length < 6) {
+      e.password = "Mínimo 6 caracteres";
+    } else if (!/[A-Z]/.test(form.password)) {
+      e.password = "Debe contener al menos una mayúscula";
+    } else if (!/[0-9]/.test(form.password)) {
+      e.password = "Debe contener al menos un número";
+    } else if (!/[^A-Za-z0-9]/.test(form.password)) {
+      e.password = "Debe contener al menos un carácter especial";
+    }
     if (!form.confirmPassword) e.confirmPassword = "Confirma tu contraseña";
     else if (form.password !== form.confirmPassword) e.confirmPassword = "Las contraseñas no coinciden";
     setErrors(e);
@@ -140,6 +149,11 @@ export default function RegistroPage() {
         telefono: form.telefono || undefined,
         direccion: dirPayload,
       });
+      // Marcar que es cuenta nueva ANTES de llamar a setUser.
+      // syncCart en AppContext leerá este flag y no subirá el carrito
+      // anónimo local a la BD (la sesión anónima no debe contaminar
+      // la cuenta recién creada).
+      localStorage.setItem("sd_cart_new_account", "1");
       setUser({
         idUsuario: res.usuario.idUsuario,
         name: res.usuario.nombreUsuario,
@@ -182,12 +196,16 @@ export default function RegistroPage() {
 
   // ── Indicador de fortaleza de contraseña ────────────────────────────────────
 
-  const passStrength = form.password.length === 0 ? 0
-    : form.password.length < 4 ? 1
-    : form.password.length < 6 ? 2
-    : form.password.length < 8 ? 3 : 4;
-  const passLabel = ["", "Muy débil", "Débil", "Regular", "Fuerte"][passStrength];
-  const passColor = ["", "bg-red-400", "bg-yellow-400", "bg-blue-400", "bg-green-400"][passStrength];
+  const passCriteria = {
+    length:  form.password.length >= 6,
+    upper:   /[A-Z]/.test(form.password),
+    number:  /[0-9]/.test(form.password),
+    special: /[^A-Za-z0-9]/.test(form.password),
+  };
+  const passScore = Object.values(passCriteria).filter(Boolean).length;
+  const passStrength = form.password.length === 0 ? 0 : passScore;
+  const passLabel = ["", "Débil", "Débil", "Regular", "Fuerte"][passStrength] as string;
+  const passColor = ["", "bg-red-400", "bg-yellow-400", "bg-blue-400", "bg-green-500"][passStrength] as string;
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -324,13 +342,30 @@ export default function RegistroPage() {
                 </div>
                 {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
                 {form.password && (
-                  <div className="mt-2">
-                    <div className="flex gap-1 mb-1">
+                  <div className="mt-2 space-y-2">
+                    {/* Barra de fortaleza */}
+                    <div className="flex gap-1">
                       {[1, 2, 3, 4].map((i) => (
                         <div key={i} className={`h-1 flex-1 rounded-full transition-colors ${i <= passStrength ? passColor : "bg-gray-200"}`} />
                       ))}
                     </div>
-                    <p className="text-xs text-gray-400">{passLabel}</p>
+                    <p className={`text-xs font-medium ${passColor.replace("bg-", "text-").replace("-400", "-600").replace("-500", "-600")}`}>
+                      {passLabel}
+                    </p>
+                    {/* Criterios individuales */}
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 pt-0.5">
+                      {[
+                        { ok: passCriteria.length,  label: "Mínimo 6 caracteres" },
+                        { ok: passCriteria.upper,   label: "Una mayúscula" },
+                        { ok: passCriteria.number,  label: "Un número" },
+                        { ok: passCriteria.special, label: "Un carácter especial" },
+                      ].map(({ ok, label }) => (
+                        <div key={label} className="flex items-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ok ? "bg-green-500" : "bg-gray-300"}`} />
+                          <span className={`text-xs ${ok ? "text-green-600 font-medium" : "text-gray-400"}`}>{label}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

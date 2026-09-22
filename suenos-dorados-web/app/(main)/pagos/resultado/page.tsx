@@ -6,7 +6,7 @@
  * La URL llega con ?ref=SD-{idPedido}-{timestamp}
  *
  * Esta página:
- * 1. Lee el linkId guardado en sessionStorage
+ * 1. Lee el linkId guardado en localStorage
  * 2. Consulta el estado del link al backend NestJS → GET /pagos/estado/:linkId
  * 3. Muestra el resultado: PAID / REJECTED / CANCELLED / PROCESSING
  */
@@ -28,8 +28,8 @@ export default function ResultadoPagoPage() {
   const [intentos,  setIntentos]  = useState(0);
 
   useEffect(() => {
-    const storedLinkId  = sessionStorage.getItem("bold_link_id");
-    const storedPedido  = sessionStorage.getItem("bold_pedido_id");
+    const storedLinkId  = localStorage.getItem("bold_link_id");
+    const storedPedido  = localStorage.getItem("bold_pedido_id");
 
     setLinkId(storedLinkId);
     setIdPedido(storedPedido);
@@ -56,14 +56,14 @@ export default function ResultadoPagoPage() {
       if (status === "PAID") {
         setEstado("aprobado");
         await loadOrders();
-        sessionStorage.removeItem("bold_link_id");
-        sessionStorage.removeItem("bold_reference");
-        sessionStorage.removeItem("bold_pedido_id");
+        localStorage.removeItem("bold_link_id");
+        localStorage.removeItem("bold_reference");
+        localStorage.removeItem("bold_pedido_id");
       } else if (status === "REJECTED" || status === "CANCELLED" || status === "EXPIRED") {
         setEstado("rechazado");
-        sessionStorage.removeItem("bold_link_id");
-        sessionStorage.removeItem("bold_reference");
-        sessionStorage.removeItem("bold_pedido_id");
+        localStorage.removeItem("bold_link_id");
+        localStorage.removeItem("bold_reference");
+        localStorage.removeItem("bold_pedido_id");
       } else {
         // ACTIVE / PROCESSING — reintentar en 3 s
         setIntentos(intento + 1);

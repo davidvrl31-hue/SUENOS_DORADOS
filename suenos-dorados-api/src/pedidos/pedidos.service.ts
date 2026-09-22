@@ -99,7 +99,13 @@ export class PedidosService {
     // 3. Aplicar cupón si viene
     let descuento = dto.descuento ?? 0;
     if (dto.codigoCupon) {
-      const resultado = await this.descuentosService.validarCupon(dto.codigoCupon, subtotal);
+      // Extraer idProducto de cada variante para validar si el cupón aplica
+      const idProductosRows = await this.dataSource.query(
+        `SELECT DISTINCT id_producto FROM variantes_producto WHERE id_variante = ANY($1)`,
+        [dto.items.map((i) => i.idVariante)],
+      );
+      const idProductos = idProductosRows.map((r: any) => Number(r.id_producto));
+      const resultado = await this.descuentosService.validarCupon(dto.codigoCupon, subtotal, idProductos);
       if (!resultado.valido) {
         throw new BadRequestException(resultado.mensaje);
       }

@@ -19,15 +19,30 @@ export class DescuentosController {
   }
 
   /**
-   * GET /descuentos/validar?codigo=PROMO20&subtotal=150000
-   * Endpoint público — el cliente lo llama al ingresar un cupón en el checkout
+   * GET /descuentos/validar?codigo=PROMO20&subtotal=150000&idProductos=1,2,3
+   * Endpoint público — el cliente lo llama al ingresar un cupón en el checkout.
+   * idProductos: lista separada por comas de los idProducto del carrito.
    */
   @Get('validar')
   validar(
     @Query('codigo') codigo: string,
     @Query('subtotal') subtotal: string,
+    @Query('idProductos') idProductos?: string,
   ) {
-    return this.service.validarCupon(codigo, Number(subtotal) || 0);
+    const productos = idProductos
+      ? idProductos.split(',').map(Number).filter((n) => !isNaN(n))
+      : undefined;
+    return this.service.validarCupon(codigo, Number(subtotal) || 0, productos);
+  }
+
+  /**
+   * GET /descuentos/producto/:idProducto
+   * Endpoint público — retorna el descuento activo y vigente de un producto.
+   * Usado por web y móvil para mostrar el precio con descuento.
+   */
+  @Get('producto/:idProducto')
+  findActivoByProducto(@Param('idProducto', ParseIntPipe) idProducto: number) {
+    return this.service.findActivoByProducto(idProducto);
   }
 
   /** GET /descuentos/:id */

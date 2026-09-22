@@ -29,8 +29,17 @@ const validateStep1 = (data: Step1Data): Step1Errors => {
     if (!data.apellido.trim()) e.apellido = "El apellido es obligatorio";
     if (!data.email.trim()) e.email = "El correo es obligatorio";
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) e.email = "Ingresa un correo válido";
-    if (!data.password.trim()) e.password = "La contraseña es obligatoria";
-    else if (data.password.length < 6) e.password = "Mínimo 6 caracteres";
+    if (!data.password.trim()) {
+        e.password = "La contraseña es obligatoria";
+    } else if (data.password.length < 6) {
+        e.password = "Mínimo 6 caracteres";
+    } else if (!/[A-Z]/.test(data.password)) {
+        e.password = "Debe contener al menos una mayúscula";
+    } else if (!/[0-9]/.test(data.password)) {
+        e.password = "Debe contener al menos un número";
+    } else if (!/[^A-Za-z0-9]/.test(data.password)) {
+        e.password = "Debe contener al menos un carácter especial";
+    }
     if (!data.confirmPassword.trim()) e.confirmPassword = "Confirma tu contraseña";
     else if (data.password && data.confirmPassword !== data.password) e.confirmPassword = "Las contraseñas no coinciden";
     return e;

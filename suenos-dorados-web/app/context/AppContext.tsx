@@ -20,6 +20,8 @@ export interface Product {
   slug?: string;
   descripcion?: string;
   stock?: number;          // stock total de variantes activas
+  /** Código de cupón del descuento activo — se aplica automáticamente al hacer checkout */
+  codigoCupon?: string;
 }
 
 export interface CartItem extends Product {
@@ -241,62 +243,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   /**
    * syncCart — BD es la única fuente de verdad cuando hay sesión activa.
-   *
-   * Estrategia cross-device:
-   * - Si hay sesión: usar BD directamente, ignorar localStorage.
-   *   Esto garantiza que vaciar en móvil se refleje en web y viceversa.
-   * - Solo si la BD está vacía Y hay ítems locales (primer login sin sesión
-   *   previa), subir los ítems locales a BD.
-   *
-   * Recibe `localItems` solo como fallback para el caso offline/primer login.
+   * El carrito anónimo local nunca se sube a la BD para evitar que
+   * productos agregados sin sesión aparezcan al hacer login o registro.
    */
-  const syncCart = useCallback(async (token: string, localItems: CartItem[]) => {
+  const syncCart = useCallback(async (token: string) => {
     try {
       const res = await fetch(`${API_URL}/usuarios/carrito`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) {
-        // No se pudo llegar a BD — usar local enriquecido
-        const enriched = await enrichCartWithStock(localItems);
-        setCart(enriched);
+        // No se pudo llegar a BD — dejar el carrito vacío (no exponer el local)
+        setCart([]);
         return;
       }
 
       const dbCart: CartItem[] = await res.json();
-
-      // ── BD tiene ítems → BD manda, ignorar localStorage ──────────────
-      if (dbCart.length > 0) {
-        const enriched = await enrichCartWithStock(dbCart);
-        setCart(enriched);
-        // Actualizar localStorage para que coincida con BD
-        localStorage.setItem("sd_cart", JSON.stringify(enriched));
-        return;
-      }
-
-      // ── BD vacía + hay ítems locales → primer login, subir a BD ──────
-      if (localItems.length > 0) {
-        const payload = buildCartPayload(localItems);
-        if (payload.length > 0) {
-          const saveRes = await fetch(`${API_URL}/usuarios/carrito`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ items: payload }),
-          });
-          if (saveRes.ok) {
-            const saved: CartItem[] = await saveRes.json();
-            const enriched = await enrichCartWithStock(saved);
-            setCart(enriched);
-            localStorage.setItem("sd_cart", JSON.stringify(enriched));
-            return;
-          }
-        }
-      }
-
-      // ── BD vacía y sin ítems locales → carrito vacío ─────────────────
-      setCart([]);
-      localStorage.setItem("sd_cart", JSON.stringify([]));
+      const enriched = await enrichCartWithStock(dbCart);
+      setCart(enriched);
+      localStorage.setItem("sd_cart", JSON.stringify(enriched));
     } catch {
-      setCart(localItems);
+      // Si falla la red, mantener el estado actual sin modificar
     }
   }, [enrichCartWithStock]);
 
@@ -343,10 +309,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (savedAddresses) setAddresses(JSON.parse(savedAddresses));
 
       if (currentUser?.token) {
-        // Rehidratación tras reload: sincronizar con BD usando los datos frescos de
-        // localStorage (currentCart/currentFavs) — no hay riesgo de closure stale aquí
-        // porque leemos directamente del storage, no del estado React.
-        syncCart(currentUser.token, currentCart);
+        syncCart(currentUser.token);
         syncFavorites(currentUser.token, currentFavs);
       } else if (currentCart.length > 0) {
         // Sin sesión: enriquecer el carrito local con stock real
@@ -368,15 +331,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Leer el carrito/favoritos directamente desde localStorage en lugar del
       // closure (que puede estar stale si setUser se llama justo después del
       // mount antes de que React actualice el estado).
-      let freshCart: CartItem[]  = [];
       let freshFavs: Product[]   = [];
       try {
-        const rawCart = localStorage.getItem("sd_cart");
         const rawFavs = localStorage.getItem("sd_favorites");
-        if (rawCart) freshCart = JSON.parse(rawCart);
         if (rawFavs) freshFavs = JSON.parse(rawFavs);
       } catch { /* noop */ }
-      syncCart(u.token, freshCart);
+      syncCart(u.token);
       syncFavorites(u.token, freshFavs);
     } else {
       localStorage.removeItem("sd_user");

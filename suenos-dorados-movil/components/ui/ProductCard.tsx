@@ -129,11 +129,6 @@ const ProductCard = memo(function ProductCard({ product, variant = "featured" }:
                             <Text style={s.agotadoBadgeTxt}>Agotado</Text>
                         </View>
                     )}
-                    {product.originalPrice && (
-                        <View style={[s.pctBadge, { backgroundColor: product.accent ?? COLORS.orange }]}>
-                            <Text style={s.pctTxt}>{pct(product.originalPrice, product.price)}</Text>
-                        </View>
-                    )}
                     {/* Corazón rojo */}
                     <TouchableOpacity
                         style={[s.favBtn, fav && s.favBtnActive]}
@@ -157,9 +152,6 @@ const ProductCard = memo(function ProductCard({ product, variant = "featured" }:
                     <Text style={s.featDesc} numberOfLines={1}>{product.desc}</Text>
                     <View style={s.priceRow}>
                         <Text style={s.priceSale}>{fmt(product.price)}</Text>
-                        {product.originalPrice && (
-                            <Text style={s.priceOrig}>{fmt(product.originalPrice)}</Text>
-                        )}
                     </View>
                     <TouchableOpacity
                         style={[s.addBtn, agotado && s.addBtnDisabled]}
@@ -236,9 +228,6 @@ const ProductCard = memo(function ProductCard({ product, variant = "featured" }:
                 <Text style={s.listName}>{product.name}</Text>
                 <View style={s.priceRow}>
                     <Text style={s.priceSale}>{fmt(product.price)}</Text>
-                    {product.originalPrice && (
-                        <Text style={s.priceOrig}>{fmt(product.originalPrice)}</Text>
-                    )}
                 </View>
             </View>
             {/* Botón + con validación de stock */}

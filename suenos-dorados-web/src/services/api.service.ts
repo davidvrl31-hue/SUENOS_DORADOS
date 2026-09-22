@@ -178,6 +178,14 @@ export interface CreatePedidoPayload {
   }[];
   descuento?: number;
   costoEnvio?: number;
+  /** Código de cupón para aplicar descuento automático en el checkout */
+  codigoCupon?: string;
+}
+
+export interface DescuentoProducto {
+  tieneDescuento: boolean;
+  porcentaje: number;
+  codigo: string;
 }
 
 // ─── Servicio centralizado de consumo HTTP ────────────────────────────────────
@@ -359,6 +367,35 @@ export const SueñosDoradosAPI = {
   },
 
   // ── Facturas ──────────────────────────────────────────────────────────────
+  // ── Descuentos ───────────────────────────────────────────────────────────────
+  /**
+   * Retorna el descuento activo y vigente de un producto, si existe.
+   * Retorna null si no hay descuento activo.
+   */
+  getDescuentoProducto: async (idProducto: number): Promise<DescuentoProducto | null> => {
+    try {
+      const res = await fetch(`${API_URL}/descuentos/producto/${idProducto}`, { cache: "no-store" });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data?.tieneDescuento ? data : null;
+    } catch { return null; }
+  },
+
+  /**
+   * Valida un cupón en el checkout.
+   * idProductos: array de idProducto del carrito para validar si aplica.
+   */
+  validarCupon: async (
+    codigo: string,
+    subtotal: number,
+    idProductos: number[],
+  ): Promise<{ valido: boolean; porcentaje: number; montoDescuento: number; mensaje: string }> => {
+    const qs = `codigo=${encodeURIComponent(codigo)}&subtotal=${subtotal}&idProductos=${idProductos.join(",")}`;
+    const res = await fetch(`${API_URL}/descuentos/validar?${qs}`, { cache: "no-store" });
+    if (!res.ok) return { valido: false, porcentaje: 0, montoDescuento: 0, mensaje: "Error al validar" };
+    return res.json();
+  },
+
   /**
    * Descarga la factura en PDF de un pedido.
    * Crea un <a> temporal y dispara la descarga en el navegador.

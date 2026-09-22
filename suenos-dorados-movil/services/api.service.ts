@@ -307,6 +307,22 @@ export const SueñosDoradosAPI = {
     `${API_URL}/facturas/pedido/${idPedido}`,
 
   // ── Descuentos ────────────────────────────────────────────────────────────
+  /**
+   * Retorna el descuento activo y vigente de un producto, si existe.
+   * Null si no hay descuento activo.
+   */
+  getDescuentoProducto: async (
+    idProducto: number,
+  ): Promise<{ tieneDescuento: boolean; porcentaje: number; codigo: string } | null> => {
+    try {
+      const res = await fetch(`${API_URL}/descuentos/producto/${idProducto}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return data?.tieneDescuento ? data : null;
+    } catch { return null; }
+  },
+
+  // ── Descuentos ────────────────────────────────────────────────────────────
   validarCupon: async (codigo: string, subtotal: number) => {
     const res = await fetch(
       `${API_URL}/descuentos/validar?codigo=${encodeURIComponent(codigo)}&subtotal=${subtotal}`

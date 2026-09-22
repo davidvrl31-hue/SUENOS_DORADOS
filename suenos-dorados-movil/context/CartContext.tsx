@@ -78,11 +78,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             );
     }, []);
 
-    const syncCart = useCallback(async (token: string, localItems: CartItem[]) => {
+    const syncCart = useCallback(async (token: string) => {
         try {
             const dbCart = await API.getCarrito(token);
 
-            // Obtener stock real de las variantes de BD
+            // Obtener stock real de las variantes en BD
             const variantIds = dbCart
                 .map((i: any) => Number(i.idVariante))
                 .filter((id: number) => id > 0);
@@ -108,42 +108,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
                 stockDisponible: stockPorVariante[Number(i.idVariante)],
             }));
 
-            // ── BD tiene ítems → BD manda, ignorar AsyncStorage ──────────
-            if (mappedDb.length > 0) {
-                setItems(mappedDb);
-                await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(mappedDb));
-                return;
-            }
-
-            // ── BD vacía + hay ítems locales → primer login, subir a BD ──
-            if (localItems.length > 0) {
-                const payload = buildPayload(localItems);
-                if (payload.length > 0) {
-                    try {
-                        const finalDb = await API.guardarCarrito(token, payload);
-                        const finalMapped: CartItem[] = finalDb.map((i: any) => ({
-                            id: `${i.id}-${i.idVariante}`,
-                            name: i.name,
-                            price: Number(i.price),
-                            qty: Number(i.quantity),
-                            image: i.image?.trim() || "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&q=80",
-                            idVariante: Number(i.idVariante),
-                            stockDisponible: stockPorVariante[Number(i.idVariante)],
-                        }));
-                        setItems(finalMapped);
-                        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(finalMapped));
-                        return;
-                    } catch { /* fallback silencioso */ }
-                }
-            }
-
-            // ── BD vacía y sin ítems locales → carrito vacío ─────────────
-            setItems([]);
-            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([]));
+            // La BD es la única fuente de verdad al iniciar sesión.
+            // El carrito anónimo local NUNCA se sube a la BD para evitar
+            // que productos agregados sin sesión aparezcan al hacer login.
+            setItems(mappedDb);
+            await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(mappedDb));
         } catch {
-            // fallback silencioso — mantener estado local
+            // Si falla la red, mantener el estado actual sin modificar
         }
-    }, [buildPayload]);
+    }, []);
 
     const updateDBCart = useCallback(async (token: string, updatedItems: CartItem[]) => {
         try {
@@ -168,16 +141,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }, []); // eslint-disable-line
 
     // ── Sincronizar con BD cuando hay sesión ──
-    // Lee AsyncStorage directamente para evitar closure stale sobre `items`
-    // (el state puede no estar hidratado aún cuando este efecto se dispara).
     useEffect(() => {
         if (!user?.token) return;
-        AsyncStorage.getItem(STORAGE_KEY)
-            .then(async (stored) => {
-                const localItems: CartItem[] = stored ? JSON.parse(stored) : [];
-                await syncCart(user.token, localItems);
-            })
-            .catch(() => { });
+        syncCart(user.token);
     }, [user?.token]); // eslint-disable-line
 
     // ── Persistir localmente ──

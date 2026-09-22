@@ -11,13 +11,15 @@ export interface ProductoUI {
   desc: string;
   category: string;
   idCategoria: number;
-  price: number;         // precio mínimo de variantes
+  price: number;
   originalPrice?: number;
   badge?: string;
   image: string;
   slug: string;
   accent?: string;
   cardBg?: string;
+  /** Código del cupón activo — se aplica automáticamente al hacer checkout */
+  codigoCupon?: string;
 }
 
 interface ProductsContextType {
@@ -71,32 +73,40 @@ export function ProductsProvider({ children }: { children: React.ReactNode }) {
       setColores(cols);
       setMedidas(meds);
 
-      // Mapear productos con precio mínimo de sus variantes
-      const mapped: ProductoUI[] = prods
-        .filter((p) => p.estadoProducto)
-        .map((p) => {
-          const cat = cats.find((c) => c.idCategoria === p.idCategoria);
-          const catNombre = cat?.nombreCategoria ?? "Sin categoría";
-          const varsProd = vars.filter((v) => v.idProducto === p.idProducto && v.estado);
-          const precios = varsProd.map((v) => Number(v.precio));
-          const precioMin = precios.length > 0 ? Math.min(...precios) : 0;
-          const precioMax = precios.length > 0 ? Math.max(...precios) : 0;
-          const deco = CAT_COLORS[catNombre] ?? { accent: "#f5a742", cardBg: "#fef3e2" };
+      // Mapear productos con precio + descuento activo
+      const mapped: ProductoUI[] = await Promise.all(
+        prods
+          .filter((p) => p.estadoProducto)
+          .map(async (p) => {
+            const cat = cats.find((c) => c.idCategoria === p.idCategoria);
+            const catNombre = cat?.nombreCategoria ?? "Sin categoría";
+            const varsProd = vars.filter((v) => v.idProducto === p.idProducto && v.estado);
+            const precios = varsProd.map((v) => Number(v.precio));
+            const precioMin = precios.length > 0 ? Math.min(...precios) : 0;
+            const deco = CAT_COLORS[catNombre] ?? { accent: "#f5a742", cardBg: "#fef3e2" };
 
-          return {
-            id: String(p.idProducto),
-            name: p.nombreProducto,
-            desc: p.descripcionProducto ?? catNombre,
-            category: catNombre,
-            idCategoria: p.idCategoria,
-            price: precioMin,
-            originalPrice: precioMax > precioMin ? precioMax : undefined,
-            image: p.imagenUrl || PLACEHOLDER,
-            slug: p.slug,
-            accent: deco.accent,
-            cardBg: deco.cardBg,
-          };
-        });
+            // Cargar descuento activo si existe
+            const descuento = await SueñosDoradosAPI.getDescuentoProducto(p.idProducto);
+            const precioConDescuento = descuento
+              ? Math.round(precioMin * (1 - descuento.porcentaje / 100))
+              : precioMin;
+
+            return {
+              id: String(p.idProducto),
+              name: p.nombreProducto,
+              desc: p.descripcionProducto ?? catNombre,
+              category: catNombre,
+              idCategoria: p.idCategoria,
+              price:         precioConDescuento,
+              originalPrice: descuento ? precioMin : undefined,
+              image: p.imagenUrl || PLACEHOLDER,
+              slug: p.slug,
+              accent: deco.accent,
+              cardBg: deco.cardBg,
+              codigoCupon: descuento?.codigo,
+            };
+          })
+      );
 
       setProductos(mapped);
     } catch (e) {

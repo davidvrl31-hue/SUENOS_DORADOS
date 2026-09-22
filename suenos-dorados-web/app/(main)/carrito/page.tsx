@@ -113,6 +113,9 @@ export default function CarritoPage() {
     setError("");
     setLoading(true);
     try {
+      // Detectar si algún ítem del carrito tiene cupón activo
+      const cuponActivo = cart.find((i) => (i as any).codigoCupon)?.codigoCupon as string | undefined;
+
       const orderData = await SueñosDoradosAPI.crearPedido(user.token, {
         idDireccion: idDireccionSel,
         items: cart.map((item) => ({
@@ -121,6 +124,7 @@ export default function CarritoPage() {
           precioUnitario: item.price,
         })),
         costoEnvio: envio,
+        codigoCupon: cuponActivo,
       });
 
       const { checkoutUrl, linkId, referenceId } = await SueñosDoradosAPI.crearLinkDePago(
@@ -135,11 +139,11 @@ export default function CarritoPage() {
 
       clearCart();
       await loadOrders();
-      sessionStorage.setItem("bold_link_id",  linkId);
-      sessionStorage.setItem("bold_reference", referenceId);
-      sessionStorage.setItem("bold_pedido_id", String(orderData.idPedido));
+      localStorage.setItem("bold_link_id",   linkId);
+      localStorage.setItem("bold_reference",  referenceId);
+      localStorage.setItem("bold_pedido_id",  String(orderData.idPedido));
       setStep("redirigiendo");
-      setTimeout(() => { window.location.href = checkoutUrl; }, 1200);
+      setTimeout(() => { window.open(checkoutUrl, "_blank"); }, 1200);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al crear el pago");
     } finally { setLoading(false); }
@@ -170,13 +174,16 @@ export default function CarritoPage() {
           <div>
             <h2 className="text-xl font-bold text-gray-900 mb-2">Preparando tu pago...</h2>
             <p className="text-sm text-gray-500">
-              Te llevamos a la pasarela de Bold donde podrás pagar con PSE,
-              Nequi, tarjeta o Bancolombia.
+              Se abrirá una nueva pestaña con la pasarela de Bold donde podrás
+              pagar con PSE, Nequi, tarjeta o Bancolombia.
+            </p>
+            <p className="text-xs text-gray-400 mt-2">
+              Una vez pagues, vuelve a esta pestaña para ver el resultado.
             </p>
           </div>
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <Loader2 size={14} className="animate-spin" />
-            Conectando con Bold...
+            Abriendo Bold en nueva pestaña...
           </div>
         </div>
       </div>
@@ -266,12 +273,12 @@ export default function CarritoPage() {
                           updateQty(item.id, item.quantity + 1, item.idVariante);
                         }}
                         disabled={enLimite}
-                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors active:scale-95 ${
+                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
                           enLimite
-                            ? "opacity-30 cursor-not-allowed"
-                            : "hover:bg-white"
+                            ? "bg-gray-200 text-gray-300 cursor-not-allowed"
+                            : "hover:bg-white active:scale-95 text-gray-700"
                         }`}
-                        title={enLimite ? `Stock máximo: ${stockActual}` : undefined}
+                        title={enLimite ? `Máximo disponible: ${stockActual}` : "Aumentar cantidad"}
                       >
                         <Plus size={14} />
                       </button>

@@ -55,10 +55,43 @@ export class DescuentosService {
   }
 
   /**
-   * Valida un cupón y retorna el porcentaje de descuento.
+   * Retorna el descuento activo y vigente para un producto específico, si existe.
+   * Usado por web y móvil para mostrar el precio con descuento en las tarjetas.
+   */
+  async findActivoByProducto(idProducto: number): Promise<{
+    tieneDescuento: boolean;
+    porcentaje: number;
+    codigo: string;
+  } | null> {
+    const hoy = new Date().toISOString().split('T')[0];
+    const desc = await this.repo.findOne({
+      where: {
+        idProducto,
+        isActive: true,
+      },
+    });
+
+    if (!desc) return null;
+    if (hoy < desc.fechaInicio || hoy > desc.fechaFin) return null;
+
+    return {
+      tieneDescuento: true,
+      porcentaje: Number(desc.porcentajeDescuento),
+      codigo: desc.codigo,
+    };
+  }
+
+  /**
+   * Valida un cupón y retorna el monto de descuento.
+   * Si el cupón tiene id_producto, valida que al menos uno de los ítems
+   * del carrito sea de ese producto.
    * Usado en el checkout para aplicar el descuento al subtotal.
    */
-  async validarCupon(codigo: string, subtotal: number): Promise<{
+  async validarCupon(
+    codigo: string,
+    subtotal: number,
+    idProductos?: number[],
+  ): Promise<{
     valido: boolean;
     porcentaje: number;
     montoDescuento: number;
@@ -83,7 +116,21 @@ export class DescuentosService {
       return { valido: false, porcentaje: 0, montoDescuento: 0, mensaje: 'El cupón ha expirado' };
     }
 
-    const porcentaje    = Number(desc.porcentajeDescuento);
+    // ── Validar que el cupón aplique al producto si es específico ─────────────
+    if (desc.idProducto !== null && desc.idProducto !== undefined) {
+      const productosCarrito = idProductos ?? [];
+      if (!productosCarrito.includes(desc.idProducto)) {
+        return {
+          valido: false,
+          porcentaje: 0,
+          montoDescuento: 0,
+          mensaje: 'Este cupón no aplica para los productos de tu carrito',
+        };
+      }
+    }
+    // ──────────────────────────────────────────────────────────────────────────
+
+    const porcentaje     = Number(desc.porcentajeDescuento);
     const montoDescuento = Math.round((subtotal * porcentaje) / 100);
 
     return {

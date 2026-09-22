@@ -39,6 +39,7 @@ export default function ProductDetailScreen() {
   const [loading,   setLoading]   = useState(true);
   const [medidaSel, setMedidaSel] = useState<number | null>(null);
   const [colorSel,  setColorSel]  = useState<number | null>(null);
+  const [descuentoActivo, setDescuentoActivo] = useState<{ porcentaje: number; codigo: string } | null>(null);
 
   // Cargar datos
   useEffect(() => {
@@ -58,6 +59,10 @@ export default function ProductDetailScreen() {
           setVariantes(activeVars);
           setColores(cols);
           setMedidas(meds);
+
+          // Cargar descuento activo si existe
+          const descuento = await API.getDescuentoProducto(prodId);
+          setDescuentoActivo(descuento);
           let initialVar = queryVarianteId
             ? activeVars.find((v) => v.idVariante === Number(queryVarianteId))
             : null;
@@ -104,16 +109,24 @@ export default function ProductDetailScreen() {
   const inStock      = stockActual > 0;
   const puedeAgregar = inStock && cantidadEnCarrito < stockActual;
 
+  // Precio con descuento si aplica
+  const precioBase        = selVar ? Number(selVar.precio) : 0;
+  const precioConDescuento = descuentoActivo
+    ? Math.round(precioBase * (1 - descuentoActivo.porcentaje / 100))
+    : precioBase;
+
   // ── Helper: construye el ítem del carrito ──
   const buildCartItem = () => {
     if (!producto || !selVar) return null;
     return {
       id:               `${producto.idProducto}-${selVar.idVariante}`,
       name:             `${producto.nombreProducto} (${getNombreColor(selVar.idColor)} / ${getNombreMedida(selVar.idMedida)})`,
-      price:            Number(selVar.precio),
+      price:            precioConDescuento,
       image:            producto.imagenUrl || PLACEHOLDER_IMAGE,
       idVariante:       selVar.idVariante,
       stockDisponible:  stockActual,
+      // Guardar el código del cupón para aplicarlo en el checkout
+      codigoCupon:      descuentoActivo?.codigo,
     };
   };
 
@@ -222,7 +235,8 @@ export default function ProductDetailScreen() {
           <Image
             source={{ uri: producto.imagenUrl || PLACEHOLDER_IMAGE }}
             style={s.image}
-            resizeMode="cover"
+            resizeMode="contain"
+            onError={() => {}}
           />
           <View style={s.categoryBadge}>
             <Text style={s.categoryBadgeTxt}>Sueños Dorados</Text>
@@ -243,8 +257,13 @@ export default function ProductDetailScreen() {
           {/* Precio + stock */}
           <View style={s.priceStockRow}>
             <Text style={s.priceTxt}>
-              {selVar ? fmt(Number(selVar.precio)) : "$0"}
+              {selVar ? fmt(precioConDescuento) : "$0"}
             </Text>
+            {descuentoActivo && selVar && (
+              <View style={s.descuentoBadge}>
+                <Text style={s.descuentoBadgeTxt}>-{descuentoActivo.porcentaje}%</Text>
+              </View>
+            )}
             {inStock ? (
               <View style={s.stockGreen}>
                 <Feather name="check-circle" size={11} color="#16A34A" />
@@ -262,7 +281,15 @@ export default function ProductDetailScreen() {
           {/* Desglose IVA */}
           {selVar && (
             <Text style={s.ivaTxt}>
+              {descuentoActivo && (
+                <>Precio original: {fmt(precioBase)} · </>
+              )}
               Base: ${Math.round(Number(selVar.precio) / 1.19).toLocaleString("es-CO")} + IVA 19%: ${Math.round(Number(selVar.precio) - Number(selVar.precio) / 1.19).toLocaleString("es-CO")} · IVA incluido
+            </Text>
+          )}
+          {descuentoActivo && (
+            <Text style={s.cuponHint}>
+              🏷️ Cupón {descuentoActivo.codigo} aplicado automáticamente
             </Text>
           )}
 
@@ -416,7 +443,14 @@ const s = StyleSheet.create({
   headerTitle: { flex: 1, textAlign: "center", fontSize: 16, fontWeight: "800", color: COLORS.text, marginHorizontal: 8 },
 
   // Imagen
-  imgWrapper: { width, height: width * 0.85, backgroundColor: "#ECEFF1", position: "relative" },
+  imgWrapper: {
+    width,
+    height: width * 0.9,
+    backgroundColor: "#FFFFFF",
+    position: "relative",
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
   image: { width: "100%", height: "100%" },
   categoryBadge: {
     position: "absolute", top: 14, left: 14,
@@ -455,6 +489,15 @@ const s = StyleSheet.create({
   cartHint: { fontSize: 12, color: COLORS.orange, fontWeight: "600", marginBottom: 4 },
   skuTxt:   { fontSize: 11, color: COLORS.muted, marginBottom: 4 },
   ivaTxt:   { fontSize: 11, color: COLORS.mutedDark ?? COLORS.muted, marginBottom: 4, lineHeight: 16 },
+  cuponHint:{ fontSize: 11, color: "#16A34A", fontWeight: "600" as const, marginBottom: 4 },
+  descuentoBadge: {
+    backgroundColor: "#EF4444",
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginLeft: 6,
+  },
+  descuentoBadgeTxt: { fontSize: 11, fontWeight: "800" as const, color: "#fff" },
 
   divider: { height: 1, backgroundColor: COLORS.border, marginVertical: 16 },
 

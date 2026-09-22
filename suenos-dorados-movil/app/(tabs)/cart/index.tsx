@@ -81,6 +81,9 @@ const CartScreen = memo(function CartScreen() {
 
         try {
             // 1. Crear pedido en la BD (estado: Pendiente)
+            // Detectar si algún ítem tiene cupón activo
+            const cuponActivo = (items as any[]).find((i) => i.codigoCupon)?.codigoCupon as string | undefined;
+
             const orderData: any = await API.crearPedido(user.token, {
                 idDireccion: selectedDir,
                 items: items.map((i) => ({
@@ -89,6 +92,7 @@ const CartScreen = memo(function CartScreen() {
                     precioUnitario: i.price,
                 })),
                 costoEnvio: shipping,
+                codigoCupon: cuponActivo,
             });
 
             setIdPedidoCreado(orderData.idPedido);

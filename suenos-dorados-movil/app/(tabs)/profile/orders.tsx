@@ -1,5 +1,5 @@
 import { Feather } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system";
+import { File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -25,21 +25,32 @@ export default function Orders() {
         try {
             const url      = API.getFacturaUrl(idPedido);
             const fileName = `Factura-SD-${String(idPedido).padStart(6, "0")}.pdf`;
-            const cacheDir = FileSystem.cacheDirectory ?? FileSystem.documentDirectory ?? "";
-            const destino  = `${cacheDir}${fileName}`;
-            const descarga = await FileSystem.downloadAsync(url, destino, {
+
+            // File.downloadFileAsync es la API moderna de expo-file-system SDK 57.
+            // Soporta headers, rechaza automáticamente si el status no es 2xx,
+            // y escribe directamente en disco sin pasar por memoria JS.
+            const destino = new File(Paths.cache, fileName);
+            // Si ya existe de una descarga previa, lo borramos para evitar error DestinationAlreadyExists
+            if (destino.exists) destino.delete();
+
+            const archivo = await File.downloadFileAsync(url, destino, {
                 headers: { Authorization: `Bearer ${user.token}` },
             });
-            if (descarga.status !== 200) throw new Error(`Error ${descarga.status}`);
+
+            // Abrir el diálogo nativo de compartir / visor PDF
             const puedo = await Sharing.isAvailableAsync();
             if (puedo) {
-                await Sharing.shareAsync(descarga.uri, { mimeType: "application/pdf", dialogTitle: `Factura ORD-${idPedido}`, UTI: "com.adobe.pdf" });
+                await Sharing.shareAsync(archivo.uri, {
+                    mimeType:    "application/pdf",
+                    dialogTitle: `Factura ORD-${idPedido}`,
+                    UTI:         "com.adobe.pdf",
+                });
             } else {
                 Alert.alert("Sin visor PDF", "Instala Adobe Acrobat u otra app para abrir PDFs.");
             }
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "No se pudo descargar la factura";
-            Alert.alert("Error", msg);
+            Alert.alert("Error al descargar factura", msg);
         } finally {
             setDescargando(null);
         }

@@ -27,6 +27,8 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
   const [varianteSeleccionada, setVarianteSeleccionada] = useState<VarianteProducto | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  // Descuento activo del producto
+  const [descuentoActivo, setDescuentoActivo] = useState<{ porcentaje: number; codigo: string } | null>(null);
 
   useEffect(() => {
     const cargarDatos = async () => {
@@ -48,6 +50,10 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
         setAllVars(dbAllVars);
         setColores(cols);
         setMedidas(meds);
+
+        // Cargar descuento activo si existe
+        const descuento = await SueñosDoradosAPI.getDescuentoProducto(Number(id));
+        setDescuentoActivo(descuento);
 
         // Seleccionar variante solicitada por query param o la primera con stock
         let seleccionada = null;
@@ -90,14 +96,20 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
 
   // Construir el objeto Product compatible con el contexto
   const precioActual = varianteSeleccionada ? Number(varianteSeleccionada.precio) : 0;
+  const precioConDescuento = descuentoActivo
+    ? Math.round(precioActual * (1 - descuentoActivo.porcentaje / 100))
+    : precioActual;
+
   const productParaCarrito: Product = {
-    id:          producto.idProducto,
-    name:        producto.nombreProducto,
-    price:       precioActual,
-    image:       producto.imagenUrl || PLACEHOLDER_IMAGE,
-    category:    String(producto.idCategoria),
-    slug:        producto.slug,
-    descripcion: producto.descripcionProducto ?? undefined,
+    id:            producto.idProducto,
+    name:          producto.nombreProducto,
+    price:         precioConDescuento,
+    originalPrice: descuentoActivo ? precioActual : undefined,
+    image:         producto.imagenUrl || PLACEHOLDER_IMAGE,
+    category:      String(producto.idCategoria),
+    slug:          producto.slug,
+    descripcion:   producto.descripcionProducto ?? undefined,
+    codigoCupon:   descuentoActivo?.codigo,
   };
 
   const isFav = favorites.some((f) => f.id === producto.idProducto);
@@ -203,15 +215,34 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
           {/* Precio */}
           <div className="flex items-end gap-3">
             {varianteSeleccionada ? (
-              <div>
-                <span className="text-3xl font-bold text-primary">
-                  ${Number(varianteSeleccionada.precio).toLocaleString("es-CO")}
-                </span>
-                <p className="text-xs text-gray-400 mt-1">
+              <div className="space-y-1">
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl font-bold text-primary">
+                    ${descuentoActivo
+                      ? Math.round(Number(varianteSeleccionada.precio) * (1 - descuentoActivo.porcentaje / 100)).toLocaleString("es-CO")
+                      : Number(varianteSeleccionada.precio).toLocaleString("es-CO")}
+                  </span>
+                  {descuentoActivo && (
+                    <>
+                      <span className="text-lg text-gray-400 line-through">
+                        ${Number(varianteSeleccionada.precio).toLocaleString("es-CO")}
+                      </span>
+                      <span className="bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                        -{descuentoActivo.porcentaje}%
+                      </span>
+                    </>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400">
                   Base: ${Math.round(Number(varianteSeleccionada.precio) / 1.19).toLocaleString("es-CO")} +
                   IVA (19%): ${Math.round(Number(varianteSeleccionada.precio) - Number(varianteSeleccionada.precio) / 1.19).toLocaleString("es-CO")}
                   {" · "}IVA incluido
                 </p>
+                {descuentoActivo && (
+                  <p className="text-xs text-green-600 font-semibold">
+                    🏷️ Cupón <span className="font-mono">{descuentoActivo.codigo}</span> aplicado automáticamente al comprar
+                  </p>
+                )}
               </div>
             ) : (
               <span className="text-lg text-gray-400 font-medium">Selecciona una opción</span>
@@ -325,7 +356,7 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
           <div className="flex gap-3 pt-2">
             <button
               onClick={() => addToCart(
-                { ...productParaCarrito, price: precioActual },
+                { ...productParaCarrito, price: precioConDescuento },
                 varianteSeleccionada?.idVariante,
                 varianteSeleccionada?.sku,
               )}
@@ -361,7 +392,7 @@ export default function ProductoPage({ params }: { params: Promise<{ id: string 
           <button
             onClick={() => {
               if (!varianteSeleccionada || stockActual === 0) return;
-              const p = { ...productParaCarrito, price: precioActual };
+              const p = { ...productParaCarrito, price: precioConDescuento };
               if (itemEnCarrito && itemEnCarrito.idVariante === varianteSeleccionada.idVariante) {
                 // Ya está con la misma variante → ir al carrito directo
                 window.location.href = "/carrito";

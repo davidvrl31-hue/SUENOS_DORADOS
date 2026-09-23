@@ -176,7 +176,7 @@ const RegisterStep1 = memo(function RegisterStep1({
                 {hasError("password") && (
                     <Text style={s.errorText}>{errors.password}</Text>
                 )}
-                {!hasError("password") && data.password && (
+                {!hasError("password") && data.password.length > 0 && (
                     <View style={s.strengthContainer}>
                         <PasswordStrengthIndicator password={data.password} />
                     </View>

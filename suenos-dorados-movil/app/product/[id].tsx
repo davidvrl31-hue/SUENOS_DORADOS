@@ -228,14 +228,14 @@ export default function ProductDetailScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 0 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 110 }}>
 
         {/* ── Imagen hero ── */}
         <View style={s.imgWrapper}>
           <Image
             source={{ uri: producto.imagenUrl || PLACEHOLDER_IMAGE }}
             style={s.image}
-            resizeMode="contain"
+            resizeMode="cover"
             onError={() => {}}
           />
           <View style={s.categoryBadge}>
@@ -363,7 +363,7 @@ export default function ProductDetailScreen() {
               "Este artículo de Sueños Dorados ha sido fabricado con estándares de alta calidad para brindarte el máximo descanso, confort y suavidad."}
           </Text>
 
-          {/* ── Beneficios (igual que en web) ── */}
+          {/* Beneficios (igual que en web) */}
           <View style={s.beneficiosRow}>
             {[
               { icon: "truck",          label: "Envío gratis", sub: "+$100.000" },
@@ -377,9 +377,6 @@ export default function ProductDetailScreen() {
               </View>
             ))}
           </View>
-
-          {/* Espacio bajo el footer */}
-          <View style={{ height: 120 }} />
         </View>
       </ScrollView>
 
@@ -445,16 +442,14 @@ const s = StyleSheet.create({
   // Imagen
   imgWrapper: {
     width,
-    height: width * 0.9,
-    backgroundColor: "#FFFFFF",
+    height: width * 0.78,
+    backgroundColor: "#F8F8F8",
     position: "relative",
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
   },
   image: { width: "100%", height: "100%" },
   categoryBadge: {
     position: "absolute", top: 14, left: 14,
-    backgroundColor: "rgba(255,255,255,0.92)", borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.95)", borderRadius: 20,
     paddingHorizontal: 12, paddingVertical: 5,
     borderWidth: 1, borderColor: COLORS.border,
   },
@@ -469,15 +464,15 @@ const s = StyleSheet.create({
   // Tarjeta
   infoCard: {
     backgroundColor: COLORS.bg,
-    borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    marginTop: -20, padding: 20, paddingTop: 24,
-    shadowColor: "#000", shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.06, shadowRadius: 12, elevation: 6,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    marginTop: -24, padding: 20, paddingTop: 26,
+    shadowColor: "#000", shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08, shadowRadius: 16, elevation: 8,
   },
-  nameTxt: { fontSize: 20, fontWeight: "800", color: COLORS.text, lineHeight: 26, marginBottom: 10 },
+  nameTxt: { fontSize: 20, fontWeight: "800", color: COLORS.text, lineHeight: 27, marginBottom: 10 },
 
-  priceStockRow: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 },
-  priceTxt: { fontSize: 24, fontWeight: "900", color: COLORS.orange },
+  priceStockRow: { flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 8, marginBottom: 4 },
+  priceTxt: { fontSize: 26, fontWeight: "900", color: COLORS.orange },
   stockGreen: {
     flexDirection: "row", alignItems: "center", gap: 4,
     backgroundColor: "#DCFCE7", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,

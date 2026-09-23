@@ -1,23 +1,68 @@
+# ============================================================
+# SUEÑOS DORADOS — .gitignore global del monorepo
+# ============================================================
+
 # ===========================
-# NODE - todas las carpetas
+# VARIABLES DE ENTORNO
+# (contienen credenciales, nunca subir)
+# ===========================
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# ===========================
+# DEPENDENCIAS
 # ===========================
 **/node_modules/
 **/.pnp
 **/.pnp.js
 
+# Python
+**/venv/
+**/.venv/
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.egg-info/
+**/dist-info/
+
 # ===========================
-# BUILDS
+# BUILDS Y COMPILADOS
 # ===========================
 **/dist/
 **/build/
 **/.next/
 **/out/
 **/web-build/
+**/tsconfig.tsbuildinfo
+**/*.tsbuildinfo
 
 # ===========================
-# VARIABLES DE ENTORNO
+# ARCHIVOS GENERADOS EN RUNTIME
+# (facturas PDF, reportes Excel, etc.)
 # ===========================
+suenos-dorados-api/uploads/
+suenos-dorados-escritorio/facturas/
+suenos-dorados-escritorio/reportes/
+suenos-dorados-escritorio/imagenes_app/
 
+# ===========================
+# EXPO / REACT NATIVE
+# ===========================
+**/.expo/
+**/.metro-health-check*
+**/expo-env.d.ts
+**/*.orig.*
+
+# Certificados y llaves nativas (no aplica en Expo managed, pero por si acaso)
+**/*.jks
+**/*.p8
+**/*.p12
+**/*.key
+**/*.mobileprovision
+**/.kotlin/
 
 # ===========================
 # LOGS
@@ -30,30 +75,15 @@ yarn-error.log*
 pnpm-debug.log*
 
 # ===========================
-# EXPO / REACT NATIVE
-# ===========================
-**/.expo/
-**/.metro-health-check*
-**/expo-env.d.ts
-**/*.orig.*
-**/*.jks
-**/*.p8
-**/*.p12
-**/*.key
-**/*.mobileprovision
-**/.kotlin/
-**/ios/
-**/android/
-
-# ===========================
-# OS
+# SISTEMA OPERATIVO
 # ===========================
 .DS_Store
 Thumbs.db
+desktop.ini
 *.pem
 
 # ===========================
-# IDEs
+# IDEs y EDITORES
 # ===========================
 .vscode/*
 !.vscode/settings.json
@@ -62,18 +92,19 @@ Thumbs.db
 !.vscode/extensions.json
 .idea/
 *.sublime-workspace
+*.suo
+*.user
 
 # ===========================
-# TESTS / COVERAGE
+# TESTS Y COBERTURA
 # ===========================
 **/coverage/
 **/.nyc_output/
 
 # ===========================
-# MISC
+# CACHÉ Y TEMPORALES
 # ===========================
 **/.temp/
 **/.tmp/
 **/.cache/
-**/*.tsbuildinfo
 **/report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
